@@ -1,6 +1,7 @@
 
 """
-A mock device Lambda
+A mock device Lambda that both generates telemetry on a topic and then reviews
+telemetry it receives for a simple threshold crossing error.
 """
 from __future__ import print_function
 import json
@@ -29,22 +30,31 @@ def get_shadow_state():
     return json.loads(gg_client.get_thing_shadow(thingName='MockDevice'))
 
 
-def get_pub_frequency(mock_shadow):
-    if 'state' in mock_shadow is False or \
-        'reported' in mock_shadow['state'] is False or \
-            'pub_frequency' in mock_shadow['state']['reported'] is False:
+def get_pub_frequency(shadow):
+    if 'state' in shadow is False or \
+        'reported' in shadow['state'] is False or \
+            'pub_frequency' in shadow['state']['reported'] is False:
             return 1
 
-    return mock_shadow['state']['reported']['pub_frequency']
+    return shadow['state']['reported']['pub_frequency']
 
 
-def get_pub_topic(mock_shadow):
-    if 'state' in mock_shadow is False or \
-        'reported' in mock_shadow['state'] is False or \
-            'pub_topic' in mock_shadow['state']['reported'] is False:
-            return '/mock/telemetry'
+def get_error_topic(shadow):
+    if 'state' in shadow is False or \
+        'reported' in shadow['state'] is False or \
+            'error_topic' in shadow['state']['reported'] is False:
+            return '/errors'
 
-    return mock_shadow['state']['reported']['pub_topic']
+    return shadow['state']['reported']['error_topic']
+
+
+def get_pub_topic(shadow):
+    if 'state' in shadow is False or \
+        'reported' in shadow['state'] is False or \
+            'pub_topic' in shadow['state']['reported'] is False:
+            return '/telemetry'
+
+    return shadow['state']['reported']['pub_topic']
 
 
 def get_telemetry():
@@ -85,33 +95,57 @@ def get_telemetry():
     ])
 
 
-def publish_telemetry(mock_shadow):
+def publish_telemetry(shadow):
     response = gg_client.publish(
-        topic=get_pub_topic(mock_shadow),
+        topic=get_pub_topic(shadow),
         qos=0,
         payload=get_telemetry()
     )
     print("[publish_telemetry] publish resp:{0}".format(response))
 
 
+def publish_error(shadow, error):
+    response = gg_client.publish(
+        topic=get_error_topic(shadow),
+        qos=0,
+        payload=error
+    )
+    print("[publish_telemetry] publish resp:{0}".format(response))
+
+
 def run_mock():
-    mock_shadow = get_shadow_state()
+    shadow = get_shadow_state()
     while True:
         for count, element in enumerate(range(10), 1):  # Start count from 1
-            publish_telemetry(mock_shadow)
-            time.sleep(get_pub_frequency(mock_shadow))
-            if count % 10 == 0:  # every 10 times through, update mock_shadow
-                mock_shadow = get_shadow_state()
+            publish_telemetry(shadow)
+            time.sleep(get_pub_frequency(shadow))
+            if count % 10 == 0:  # every 10 times through, update shadow
+                shadow = get_shadow_state()
 
 run_mock()
 
 
-# Handler for processing lambda events
+# Handler for processing Lambda events
+# this function should be subscribed to pub_topic
 def handler(event, context):
     # Unwrap the message
     msg = json.loads(event)
     logging.info("[handler] thinking about message: {0}".format(msg))
 
-    # publish some telemetry
-    mock_shadow = get_shadow_state()
-    publish_telemetry(mock_shadow)
+    error_val = None
+    for item in msg:
+        if item['device'] is 'mock-01':
+            for d in item['data']:
+                if d['value'] > 70:
+                    error_val = d['value']
+                    break
+    if error_val:
+        publish_error(
+            get_shadow_state(),
+            json.dumps({
+                "error_message": "found an error in telemetry",
+                "error_value": error_val
+            })
+        )
+    else:
+        logging.info("[handler] no error found.")
