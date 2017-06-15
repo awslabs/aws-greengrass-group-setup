@@ -1,0 +1,47 @@
+{
+  "core": {
+    "cert_arn": "arn:aws:iot:us-west-2:<account_id>:cert/EXAMPLEEXAMPLEa95f4e32EXAMPLEa888e13EXAMPLEac56337EXAMPLEeed338a",
+    "thing_arn": "arn:aws:iot:us-west-2:<account_id>:thing/<device_thing_name>",
+    "thing_name": "<device_thing_name>"
+  },
+  "core_list": {
+    "id": "",
+    "version_arn": ""
+  },
+  "device_list": {
+    "id": "",
+    "version_arn": ""
+  },
+  "devices": {
+    "GGD_example": {
+      "cert_arn": "arn:aws:iot:us-west-2:<account_id>:cert/EXAMPLEEXAMPLEa95f4e32EXAMPLEa888e13EXAMPLEac56337EXAMPLEeed338a",
+      "thing_arn": "arn:aws:iot:us-west-2:<account_id>:thing/<device_thing_name>",
+      "thing_name": "<device_thing_name>"
+    }
+  },
+  "group": {
+    "id": ""
+  },
+  "lambda_functions": {
+    "MockDevice": {
+      "arn": "arn:aws:lambda:us-west-2:<account_id>:function:MockDevice:<alias>",
+      "arn_qualifier": "<alias>"
+    }
+  },
+  "lambda_list": {
+    "id": "",
+    "version_arn": ""
+  },
+  "logging_list": {
+    "id": "",
+    "version_arn": ""
+  },
+  "subscription_list": {
+    "id": "",
+    "version_arn": ""
+  },
+  "subscriptions": {
+    "errors": "/errors",
+    "telemetry": "/telemetry"
+  }
+}
