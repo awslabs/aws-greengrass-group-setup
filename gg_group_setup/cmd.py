@@ -16,7 +16,7 @@ import fire
 import boto3
 import logging
 from botocore.exceptions import ClientError
-from group_setup import GroupConfigFile, GroupType
+from gg_group_setup import GroupConfigFile, GroupType
 
 logging.basicConfig(format='%(asctime)s|%(name)-8s|%(levelname)s: %(message)s',
                     level=logging.INFO)

@@ -17,7 +17,7 @@ greengrass-group-setup
 
 import os
 from setuptools import setup
-from group_setup import __version__
+from gg_group_setup import __version__
 
 
 def open_file(fname):
@@ -41,7 +41,7 @@ setup(
     keywords='greengrass group aws iot',
     entry_points='''
         [console_scripts]
-        gg_group_setup=group_setup.cmd:main
+        gg_group_setup=gg_group_setup.cmd:main
     ''',
     classifiers=[
         'Intended Audience :: Developers',
