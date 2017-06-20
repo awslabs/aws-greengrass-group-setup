@@ -29,8 +29,12 @@ The quickest way to get `gg_group_setup` is to install the latest stable version
 ..or of course you can clone this repository.
 
 ## Quick Start
+At a high-level the process to create a Greengrass group using `gg_group_setup` is as follows:
 
-    TBD
+    ..make your Things
+    ..create and alias your Lambda ƒ
+    ..update config file
+    $ gg_group_setup create <config_file>
 
 The command line tool can be used once the AWS IoT Things are [created and attached](http://docs.aws.amazon.com/iot/latest/developerguide/thing-registry.html) 
 to a [certificate](http://docs.aws.amazon.com/iot/latest/developerguide/managing-device-certs.html) 
