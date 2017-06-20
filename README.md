@@ -26,7 +26,7 @@ The quickest way to get `gg_group_setup` is to install the latest stable version
 
     TBD
     
-..or of course you can clone this repository.
+..or of course you can clone this repository and execute `$ python setup.py install .`
 
 ## Quick Start
 At a high-level the process to create a Greengrass group using `gg_group_setup` is as follows:
