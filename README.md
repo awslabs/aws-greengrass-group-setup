@@ -25,6 +25,8 @@ a Greengrass Group. The command line includes four commands:
 The quickest way to get `gg_group_setup` is to install the latest stable version via `pip`.
 
     TBD
+    
+..or of course you can clone this repository.
 
 ## Quick Start
 
