@@ -16,7 +16,7 @@ created. It also provides a:
 - `gg_group_setup` config file parser `GroupConfigFile` which can be sub-classed
 - file-driven command line interface
 
-The file-driven command line acts demonstrates the steps necessary to create 
+The file-driven command line demonstrates the steps necessary to create 
 a Greengrass Group. The command line includes four commands: 
 `create`, `deploy`, `clean_all`, and `clean_file`.
 
