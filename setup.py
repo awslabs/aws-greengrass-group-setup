@@ -28,11 +28,11 @@ setup(
     name='gg_group_setup',
     version=__version__,
     url='https://github.com/awslabs/aws-greengrass-group-setup',
-    license=open("LICENSE").read(),
+    license="Apache License 2.0",
     author='Brett Francis',
     author_email='brettf@amazon.com',
     description='A file-driven approach to the creation of an entire AWS Greengrass group',
-    long_description=open_file("README.md").read(),
+    long_description=open_file("README.rst").read(),
     py_modules=['group_setup'],
     zip_safe=False,
     include_package_data=True,
@@ -41,13 +41,13 @@ setup(
     keywords='greengrass group aws iot',
     entry_points='''
         [console_scripts]
-        gg_group_setup=gg_group_setup.cmd:main
+        gg_group_setup=gg_group_setup:main
     ''',
     classifiers=[
         'Intended Audience :: Developers',
         'Natural Language :: English',
         'Environment :: Web Environment',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
         'Development Status :: 3 - Alpha',
         'Programming Language :: Python',
