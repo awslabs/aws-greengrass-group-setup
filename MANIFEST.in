@@ -1,0 +1,5 @@
+include README.md
+include LICENSE
+include requirements.txt
+include gg_group_setup/cfg.json
+include gg_group_setup/mock_device.py
