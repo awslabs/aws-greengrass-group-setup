@@ -27,7 +27,7 @@ Installation
 
 The quickest way to get `gg_group_setup` is to install the latest stable version via `pip`.
 
-    pip install gg_group_setup
+    pip install gg-group-setup
     
 ..or of course you can clone this repository and execute `python setup.py install .`
 
