@@ -1,5 +1,6 @@
 aws-greengrass-group-setup
 --------------------------
+[![PyPI](https://img.shields.io/pypi/l/gg-group-setup.svg)]() [![PyPI](https://img.shields.io/pypi/v/nine.svg)]()
 
 Greengrass **`gg_group_setup`** is an example file-driven approach to the creation 
 of an entire AWS Greengrass group.
