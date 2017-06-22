@@ -103,3 +103,7 @@ ENV/
 # IDE and Editor artifacts #
 *.bbprojectd
 .idea
+
+# Temporary Files #
+tmp_*
+cfg.tmp.json
