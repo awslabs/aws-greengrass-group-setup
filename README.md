@@ -17,10 +17,11 @@ Usually the following discrete steps are necessary to setup and deploy a Greengr
 **`gg_group_setup`** provides functioning example code of how a Greengrass Group is 
 created. It also provides a:
 - `gg_group_setup` config file parser `GroupConfigFile` which can be sub-classed
-- file-driven command line interface
+- file-driven command line interface encapsulated in the `GroupComnands` class
+    - The file-driven command line is also an example implementation of the 
+      steps necessary to create a Greengrass Group. 
 
-The file-driven command line demonstrates the steps necessary to create 
-a Greengrass Group. The `gg_group_setup` includes four commands: 
+`gg_group_setup` includes four commands: 
 `create`, `deploy`, `clean_all`, and `clean_file`.
 
 After installation you can use these commands from the Command Line Interface, or 
@@ -125,8 +126,14 @@ Lambda function(s)
               "telemetry": "/telemetry"
             }
             ```
-1. Follow [these instructions](http://docs.aws.amazon.com/greengrass/latest/userguide/create-your-first-greengrass-group-and-core.html) to provision your Greengrass core.
-1. Execute `$ gg_group_setup create <config_file>`
+1. Download the Greengrass software and follow [these instructions](http://docs.aws.amazon.com/greengrass/latest/userguide/extract-distributable.html) 
+to extract the software onto the Greengrass core.
+1. [Install](http://docs.aws.amazon.com/greengrass/latest/userguide/install-core-certs.html) 
+the Greengrass core's certificates onto the core device
+1. [Start](http://docs.aws.amazon.com/greengrass/latest/userguide/start-core.html) 
+your Greengrass core
+1. Execute `$ gg_group_setup create <config_file>` -- to create the group
+1. Execute `$ gg_group_setup deploy <config_file>` -- to deploy the group
 
 > Note: **gg_group_setup** also includes a Mock Device Lambda function you can use to 
 get started. 
