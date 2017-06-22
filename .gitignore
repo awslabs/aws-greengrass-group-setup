@@ -107,3 +107,7 @@ ENV/
 # Temporary Files #
 tmp_*
 cfg.tmp.json
+
+# OS generated files #
+.DS_Store
+.DS_Store?
