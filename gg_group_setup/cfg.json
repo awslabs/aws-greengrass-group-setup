@@ -4,11 +4,11 @@
     "thing_arn": "arn:aws:iot:us-west-2:<account_id>:thing/<device_thing_name>",
     "thing_name": "<device_thing_name>"
   },
-  "core_list": {
+  "core_def": {
     "id": "",
     "version_arn": ""
   },
-  "device_list": {
+  "device_def": {
     "id": "",
     "version_arn": ""
   },
@@ -19,6 +19,10 @@
       "thing_name": "<device_thing_name>"
     }
   },
+  "func_def": {
+    "id": "",
+    "version_arn": ""
+  },
   "group": {
     "id": ""
   },
@@ -28,15 +32,11 @@
       "arn_qualifier": "<alias>"
     }
   },
-  "lambda_list": {
+  "logger_def": {
     "id": "",
     "version_arn": ""
   },
-  "logging_list": {
-    "id": "",
-    "version_arn": ""
-  },
-  "subscription_list": {
+  "subscription_def": {
     "id": "",
     "version_arn": ""
   },
