@@ -10,7 +10,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-from .group import GroupConfigFile, GroupType, MockGroupType
+from .group import GroupConfigFile, GroupType
 from .cmd import GroupCommands, main
 
-__version__ = '0.1.6'
+__version__ = '0.2.0'

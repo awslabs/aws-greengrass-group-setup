@@ -172,7 +172,8 @@ class GroupType(object):
         policy_name = '{0}-{1}'.format(self.type_name,
                                        self.config['core']['thing_name'])
         policy = json.dumps(thing_policy)
-        logging.debug('[create_and_attach_thing_policy] policy:{0}'.format(policy))
+        logging.debug(
+            "[create_and_attach_thing_policy] policy:{0}".format(policy))
         try:
             p = iot.create_policy(
                 policyName=policy_name,
@@ -195,7 +196,7 @@ class GroupType(object):
                 logging.warning(
                     "[create_and_attach_thing_policy] {0}".format(
                         ce.response['Error']['Message']))
-            # since policy already exists return nothing, assuming previous success
+            # policy already exists return nothing, assuming previous success
 
     def create_and_attach_iam_role(self):
         logging.info("[begin] [create_and_attach_iam_role]")
@@ -203,7 +204,8 @@ class GroupType(object):
         iam_res = Session(region_name=self.region).resource('iam')
         gg_client = boto3.client('greengrass', region_name=self.region)
         role_name = '{0}_service_role'.format(self.type_name)
-        aws_lambda_ro_access_arn = "arn:aws:iam::aws:policy/AWSLambdaReadOnlyAccess"
+        aws_lambda_ro_access_arn = \
+            "arn:aws:iam::aws:policy/AWSLambdaReadOnlyAccess"
         aws_iot_full_access_arn = "arn:aws:iam::aws:policy/AWSIoTFullAccess"
 
         assume_role_policy = {
@@ -272,7 +274,7 @@ class GroupType(object):
             else:
                 logging.error("[create_and_attach_iam_role] {0}".format(
                         ce.response['Error']['Message']))
-            # since role already exists return nothing, assuming previous success
+            # role already exists return nothing, assuming previous success
 
     def get_core_definition(self, config):
         raise NotImplementedError('Override get_core_definition()')
@@ -282,54 +284,3 @@ class GroupType(object):
 
     def get_subscription_definition(self, config):
         raise NotImplementedError('Override get_subscription_definition()')
-
-
-class MockGroupType(GroupType):
-    MOCK_TYPE = 'mock'
-
-    def __init__(self, config, region='us-west-2'):
-        super(MockGroupType, self).__init__(
-            config, region=region, type_name=MockGroupType.MOCK_TYPE
-        )
-
-    def get_core_definition(self, config):
-        return [{
-            "ThingArn": config['core']['thing_arn'],
-            "CertificateArn": config['core']['cert_arn'],
-            "Id": "{0}_00".format(self.type_name),
-            "SyncShadow": True
-        }]
-
-    def get_device_definition(self, config):
-        return [{
-            "Id": "{0}_10".format(self.type_name),
-            "ThingArn": config['devices']['GGD_example']['thing_arn'],
-            "CertificateArn": config['devices']['GGD_example']['cert_arn'],
-            "SyncShadow": False
-        }]
-
-    def get_subscription_definition(self, config):
-        d = config['devices']
-        l = config['lambda_functions']
-        s = config['subscriptions']
-
-        return [
-            {
-                "Id": "1",
-                "Source": d['GGD_example']['thing_arn'],
-                "Subject": s['telemetry'],
-                "Target": l['MockDevice']['arn']
-            },
-            {
-                "Id": "4",
-                "Source": d['GGD_example']['thing_arn'],
-                "Subject": s['telemetry'],
-                "Target": "cloud"
-            },
-            {
-                "Id": "14",
-                "Source": l['MockDevice']['arn'],
-                "Subject": s['errors'],
-                "Target": "cloud"
-            }
-        ]

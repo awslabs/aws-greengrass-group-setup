@@ -16,41 +16,56 @@ import fire
 import boto3
 import logging
 from botocore.exceptions import ClientError
-from gg_group_setup import GroupConfigFile, MockGroupType
+from gg_group_setup import GroupConfigFile
 
 logging.basicConfig(format='%(asctime)s|%(name)-8s|%(levelname)s: %(message)s',
                     level=logging.INFO)
 
 
 class GroupCommands(object):
-    # set your own group types to this dict for use by the commands
-    group_types = {}
+    def __init__(self, group_types=None):
+        """
+        Commands used to create a Greengrass group.
 
-    def create(self, config_file, group_type=MockGroupType.MOCK_TYPE,
+        Specifically the given group types can be used to `create` and `deploy`
+        a group as well as `clean_all` provisioned artifacts of a group, or
+        `clean_file` to only clean the local config file.
+
+        :param group_types: dict containing custom `GroupType` classes for use
+                            by this class' commands.
+
+        """
+        super(GroupCommands, self).__init__()
+        self.group_types = group_types
+
+    def create(self, config_file, group_type=None,
                group_name=None, region='us-west-2'):
         """
         Create a Greengrass group in the given region.
 
-        config_file: config file of the group to create
-        group_type: either the default or an overridden group type
-        group_name: the name of the group. If no name is given then group_type
-                    will be used.
-        region: the region in which to create the new group.
+        :param config_file: config file of the group to create
+        :param group_type: the type of group to create. Must match a `key` in
+            the `group_types` dict
+        :param group_name: the name of the group. If no name is given, then
+            group_type will be used.
+        :param region: the region in which to create the new group.
         """
+        logging.info("[begin] create command using group_types:{0}".format(
+            self.group_types))
+
         config = GroupConfigFile(config_file=config_file)
         if config.is_fresh() is False:
             raise ValueError(
                 "Config file already tracking previously created group"
             )
 
-        self.group_types[MockGroupType.MOCK_TYPE] = MockGroupType
-
         if group_type not in self.group_types.keys():
             raise ValueError("Can only create {0} groups.".format(
                 self.group_types)
             )
 
-        # create an instance of the requested group type around the config file
+        # create an instance of the requested group type that uses the given
+        # config file and region
         gt = self.group_types[group_type](config=config, region=region)
 
         # Create a Group
@@ -62,6 +77,8 @@ class GroupCommands(object):
 
         group_info = gg_client.create_group(Name="{0}_group".format(group_name))
         config['group'] = {"id": group_info['Id']}
+
+        # setup the policies and roles
         gt.create_and_attach_thing_policy()
         gt.create_and_attach_iam_role()
 
@@ -92,14 +109,17 @@ class GroupCommands(object):
             LoggerDefinitionVersionArn=log_arn,
             SubscriptionDefinitionVersionArn=sub_arn
         )
+        # store info about the provisioned artifacts into the local config file
         config['group'] = {
             "id": group_info['Id'],
             "version_arn": grp['Arn'],
             "version": grp['Version']
         }
-        logging.info("[end] Created Greengrass Group {0}".format(group_info['Id']))
+        logging.info(
+            "[end] Created Greengrass Group {0}".format(group_info['Id']))
 
-    def _create_core_definition(self, gg_client, group_type, config, group_name):
+    @staticmethod
+    def _create_core_definition(gg_client, group_type, config, group_name):
         core_def = group_type.get_core_definition(config=config)
         core_def_id = config['core_def']['id']
         if core_def_id is None or len(core_def_id) == 0:
@@ -117,10 +137,11 @@ class GroupCommands(object):
             logging.info("CoreDefinitionId: {0}".format(core_def_id))
             return cd_arn
         else:
-            logging.info("CoreDefinition already exists:{0}".format(core_def_id))
-            return
+            logging.info(
+                "CoreDefinition already exists:{0}".format(core_def_id))
 
-    def _create_device_definition(self, gg_client, group_type, config, group_name):
+    @staticmethod
+    def _create_device_definition(gg_client, group_type, config, group_name):
         device_def = group_type.get_device_definition(config=config)
         device_def_id = config['device_def']['id']
         if device_def_id is None or len(device_def_id) == 0:
@@ -142,7 +163,8 @@ class GroupCommands(object):
             )
             return
 
-    def _create_function_definition(self, gg_client, group_type, config):
+    @staticmethod
+    def _create_function_definition(gg_client, group_type, config):
         # Add latest version of Lambda functions to a Function definition
         aws = boto3.client('lambda')
         latest_funcs = dict()
@@ -160,7 +182,8 @@ class GroupCommands(object):
             # get the function pointed to by the alias
             q = config['lambda_functions'][lambda_name]['arn_qualifier']
             f = aws.get_function(FunctionName=lambda_name, Qualifier=q)
-            logging.info("retrieved func config: {0}".format(f['Configuration']))
+            logging.info(
+                "retrieved func config: {0}".format(f['Configuration']))
             latest_funcs[lambda_name] = {
                 "arn": alias_arn,
                 "arn_qualifier": q
@@ -184,7 +207,8 @@ class GroupCommands(object):
                 FunctionDefinitionId=ll['Id'],
                 Functions=func_definition
             )
-            config['lambda_functions'] = latest_funcs  # update config with versions
+            # update config with latest function versions
+            config['lambda_functions'] = latest_funcs
             ll_arn = lmbv['Arn']
             logging.info("Created Function definition ARN:{0}".format(ll_arn))
             config['func_def'] = {'id': ll['Id'], 'version_arn': ll_arn}
@@ -192,7 +216,8 @@ class GroupCommands(object):
         else:
             return '<no_functions>'
 
-    def _create_logger_definition(self, gg_client, group_type, config):
+    @staticmethod
+    def _create_logger_definition(gg_client, group_type, config):
         log_info = gg_client.create_logger_definition(
             Name="{0}_logger_def".format(group_type.type_name)
         )
@@ -205,7 +230,7 @@ class GroupCommands(object):
                 "Type": "FileSystem"
             }, {
                 "Id": "func-logging",
-                "Component": "Lambda", "Level": "DEBUG",
+                "Component": "Lambda", "Level": "INFO",
                 "Space": 5000,  # size in KB
                 "Type": "FileSystem"
             }]
@@ -219,7 +244,8 @@ class GroupCommands(object):
 
         return log_arn
 
-    def _create_subscription_definition(self, gg_client, group_type, config):
+    @staticmethod
+    def _create_subscription_definition(gg_client, group_type, config):
         """
         Configure routing subscriptions for a Greengrass group.
 
@@ -245,7 +271,8 @@ class GroupCommands(object):
         logging.info('[end] Configured routing subscriptions')
         return sub_arn
 
-    def _delete(self, config_file, region='us-west-2'):
+    @staticmethod
+    def _delete(config_file, region='us-west-2'):
         logging.info('[begin] Deleting Group')
         config = GroupConfigFile(config_file=config_file)
 
@@ -261,7 +288,9 @@ class GroupCommands(object):
         func_def_id = config['func_def']['id']
         logging.info('Deleting func_def_id:{0}'.format(func_def_id))
         try:
-            gg_client.delete_function_definition(FunctionDefinitionId=func_def_id)
+            gg_client.delete_function_definition(
+                FunctionDefinitionId=func_def_id
+            )
         except ClientError as ce:
             logging.error(ce.message)
 
@@ -290,6 +319,11 @@ class GroupCommands(object):
         logging.info('[end] Deleted group')
 
     def clean_file(self, config_file):
+        """
+        Clean all provisioned artifacts from the local config file.
+
+        :param config_file: config file of the group to clean
+        """
         logging.info('[begin] Cleaning config file')
         config = GroupConfigFile(config_file=config_file)
 
@@ -299,6 +333,13 @@ class GroupCommands(object):
         logging.info('[end] Cleaned config file:{0}'.format(config_file))
 
     def clean_all(self, config_file, region='us-west-2'):
+        """
+        Clean all provisioned artifacts from both the local file and the AWS
+        Greengrass service.
+
+        :param config_file: config file of the group to clean
+        :param region: the region in which to clean the group
+        """
         logging.info('[begin] Cleaning all provisioned artifacts')
         config = GroupConfigFile(config_file=config_file)
         if config.is_fresh() is True:
@@ -310,6 +351,13 @@ class GroupCommands(object):
         logging.info('[end] Cleaned all provisioned artifacts')
 
     def deploy(self, config_file, region='us-west-2'):
+        """
+        Deploy the configuration and Lambda functions of a Greengrass group to
+        the Greengrass core contained in the group.
+
+        :param config_file: config file of the group to deploy
+        :param region: the region from which to deploy the group.
+        """
         config = GroupConfigFile(config_file=config_file)
         if config.is_fresh():
             raise ValueError("Config not yet tracking a group. Cannot deploy.")
@@ -326,7 +374,12 @@ class GroupCommands(object):
 
 
 def main():
-    fire.Fire(GroupCommands())
+    from mock_group import MockGroupType
+    gc = GroupCommands(group_types={
+            MockGroupType.MOCK_TYPE: MockGroupType
+        }
+    )
+    fire.Fire(gc)
 
 
 if __name__ == '__main__':
