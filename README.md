@@ -52,7 +52,7 @@ communicate with the core.
 1. [Create](http://docs.aws.amazon.com/lambda/latest/dg/with-scheduledevents-example.html) 
 and [alias](http://docs.aws.amazon.com/lambda/latest/dg/aliases-intro.html) your 
 Lambda function(s) 
-1. Update the group `<config_file>`
+1. Update the group `<config_file>`. Example: `cfg.json`
     1. update the `core` section
         1. In the `core` section of the configuration, enter the `cert_arn`, `thing_arn`, and 
         `thing_name` of the thing you want to represent your Greengrass core.
