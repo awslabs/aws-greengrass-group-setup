@@ -18,8 +18,9 @@ Usually the following discrete steps are necessary to setup and deploy a Greengr
 created. It also provides a:
 - `gg_group_setup` config file parser `GroupConfigFile` which can be sub-classed
 - file-driven command line interface encapsulated in the `GroupComnands` class
-    - The file-driven command line is also an example implementation of the 
-      steps necessary to create a Greengrass Group. 
+    - The `GroupCommands` class is also an example implementation of the steps 
+    necessary to create a Greengrass Group. 
+- `GroupType` which can be sub-classed for more complex `GroupCommands` scenarios
 
 `gg_group_setup` includes four commands: 
 `create`, `deploy`, `clean_all`, and `clean_file`.
