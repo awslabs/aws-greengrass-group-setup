@@ -133,7 +133,7 @@ to extract the software onto the Greengrass core.
 the Greengrass core's certificates onto the core device
 1. [Start](http://docs.aws.amazon.com/greengrass/latest/userguide/start-core.html) 
 your Greengrass core
-1. Execute `$ gg_group_setup create <config_file>` -- to create the group
+1. Execute `$ gg_group_setup create <group_type> <config_file>` -- to create the group
 1. Execute `$ gg_group_setup deploy <config_file>` -- to deploy the group
 
 > Note: **gg_group_setup** also includes a Mock Device Lambda function you can use to 
