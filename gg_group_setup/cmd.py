@@ -38,17 +38,17 @@ class GroupCommands(object):
         super(GroupCommands, self).__init__()
         self.group_types = group_types
 
-    def create(self, config_file, group_type=None,
+    def create(self, group_type, config_file,
                group_name=None, region='us-west-2'):
         """
         Create a Greengrass group in the given region.
 
-        :param config_file: config file of the group to create
         :param group_type: the type of group to create. Must match a `key` in
             the `group_types` dict
+        :param config_file: config file of the group to create
         :param group_name: the name of the group. If no name is given, then
             group_type will be used.
-        :param region: the region in which to create the new group.
+        :param region: the region in which to create the new group. [default: us-west-2]
         """
         logging.info("[begin] create command using group_types:{0}".format(
             self.group_types))
