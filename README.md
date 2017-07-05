@@ -148,9 +148,9 @@ this you will need to implement a sub-class of `GroupType`.
 In the `examples` folder you will see an example `mock_device` Lambda function 
 and a `mock_group`. 
 
-After implementing a sub-class of `GroupType`, update the group `<config_file>` 
-to reflect the custom group. The custom group can then be used in code as 
-follows:
+After implementing a sub-class of `GroupType` called `CustomGroupType`, update 
+the group `<config_file>` to reflect the custom group. The custom group can then 
+be used in code as follows:
 ```python
     config_file = "<filename>"  # filename of the group's <config_file>
     group_name = "<group_name>"  # if `None`, the group_type value will be used
