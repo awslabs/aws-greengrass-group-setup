@@ -262,7 +262,7 @@ class GroupType(object):
             logging.debug(
                 "[create_and_attach_iam_role] put_policy {0}".format(resp))
             role = iam_res.Role(role_name)
-            gg_client.attach_service_role_to_account(RoleArn=role.arn)
+            gg_client.associate_service_role_to_account(RoleArn=role.arn)
             logging.info(
                 "[end] [create_and_attach_iam_role] attached service role")
 
