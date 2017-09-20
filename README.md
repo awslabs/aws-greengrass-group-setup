@@ -49,7 +49,7 @@ follows:
 
 1. Either... 
     1. Call the `create-core` command with a new `thing_name` value 
-**or** 
+1. **or** 
     1. [Create](http://docs.aws.amazon.com/iot/latest/developerguide/thing-registry.html) and attach 
 the Thing that will represent your Greengrass core to a [certificate](http://docs.aws.amazon.com/iot/latest/developerguide/managing-device-certs.html)
     1. Create and attach a Thing to a certificate that will represent a Greengrass device that will 
