@@ -153,7 +153,7 @@ After the **Quick Start,** you will probably want to configure your own unique G
 group with its own Lambda functions, devices, and subscription topology. To do 
 this you will need to implement a sub-class of `GroupType`. 
  
-In the `examples` folder you will see an example `mock_device` Lambda function 
+In the `gg_group_setup` folder you will see an example `mock_device` Lambda function 
 and a `mock_group`. 
 
 After implementing a sub-class of `GroupType` called `CustomGroupType`, update 
