@@ -52,8 +52,6 @@ follows:
 1. **or** 
     1. [Create](http://docs.aws.amazon.com/iot/latest/developerguide/thing-registry.html) and attach 
 the Thing that will represent your Greengrass core to a [certificate](http://docs.aws.amazon.com/iot/latest/developerguide/managing-device-certs.html)
-    1. Create and attach a Thing to a certificate that will represent a Greengrass device that will 
-communicate with the core.
     1. Update the group `<config_file>`. Example: `cfg.json`
         1. In the `core` section of the configuration, enter the `cert_arn`, 
         `cert_id`, `thing_arn`, and  `thing_name` of the thing you want to 
@@ -70,6 +68,8 @@ communicate with the core.
 1. [Create](http://docs.aws.amazon.com/lambda/latest/dg/with-scheduledevents-example.html) 
 and [alias](http://docs.aws.amazon.com/lambda/latest/dg/aliases-intro.html) your 
 Lambda function(s) 
+1. Create and attach a Thing to a certificate that will represent a Greengrass device that will 
+communicate with the core.
 1. Update the group `<config_file>`. Example: `cfg.json`
     1. update the `devices` section
         1. In the `devices` section of the configuration, enter the `cert_arn`, `thing_arn`, and 
