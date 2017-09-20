@@ -22,8 +22,8 @@ created. It also provides a:
     necessary to create a Greengrass Group. 
 - `GroupType` which can be sub-classed for more complex `GroupCommands` scenarios
 
-`gg_group_setup` includes four commands: 
-`create`, `deploy`, `clean_all`, and `clean_file`.
+`gg_group_setup` includes five commands: 
+`create`, `deploy`, `create-core`, `clean-all`, and `clean-file`.
 
 After installation you can use these commands from the Command Line Interface, or 
 you can use them from within a program via the `GroupCommands` class. 
