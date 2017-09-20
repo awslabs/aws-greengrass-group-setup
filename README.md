@@ -49,7 +49,7 @@ follows:
 
 1. Either... 
     1. Execute `gg_group_setup create-core <thing_name> <config_file>` -- to 
-    create the Greengrass Core named `thing_name`
+    create a Greengrass Core named `thing_name`
 1. **or** 
     1. [Create](http://docs.aws.amazon.com/iot/latest/developerguide/thing-registry.html) and attach 
 the Thing that will represent your Greengrass core to a [certificate](http://docs.aws.amazon.com/iot/latest/developerguide/managing-device-certs.html)
