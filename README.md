@@ -171,3 +171,6 @@ be used in code as follows:
         group_name=group_name, region=region
     )
 ```
+
+The [`aws-greengrass-mini-fulfillment`](https://github.com/awslabs/aws-greengrass-mini-fulfillment) 
+repository creates and uses pretty complex custom group types.
