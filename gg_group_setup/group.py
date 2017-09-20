@@ -107,7 +107,7 @@ class GroupConfigFile(object):
 
     def make_fresh(self):
         config = self.get_config()
-        # config['core']['thing_name'] = ''
+        config['core']['thing_name'] = ''
         config['core']['thing_arn'] = ''
         config['core']['cert_arn'] = ''
         config['core']['cert_id'] = ''

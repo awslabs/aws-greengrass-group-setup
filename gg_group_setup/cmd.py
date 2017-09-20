@@ -423,15 +423,17 @@ class GroupCommands(object):
             dep_req['DeploymentId'],
         ))
 
-    def create_core(self, config_file, region='us-west-2', cert_dir=None):
+    def create_core(self, thing_name, config_file, region='us-west-2', cert_dir=None):
         """
-        Using the 'core > thing_name' value, creates a Thing in AWS IoT,
-        attaches and downloads new keys & certs to the certificate directory,
-        then records the created information in the local config file for
-        inclusion in the Greengrass Group as a Greengrass Core.
+        Using the `thing_name` value, creates a Thing in AWS IoT, attaches and
+        downloads new keys & certs to the certificate directory, then records
+        the created information in the local config file for inclusion in the
+        Greengrass Group as a Greengrass Core.
 
-        :param config_file: config file used to the create the thing used as a
-            Greengrass Core in the group
+        :param thing_name: the name of the thing to create and use as a
+            Greengrass Core
+        :param config_file: config file used to track the Greengrass Core in the
+            group
         :param region: the region in which to create the new core. [default: us-west-2]
         :param cert_dir: the directory in which to store the thing's keys and
             certs. If `None` then use the current directory.
@@ -441,7 +443,7 @@ class GroupCommands(object):
             raise ValueError(
                 "Config file already tracking previously created core or group"
             )
-        t_name = config['core']['thing_name']
+        t_name = thing_name
 
         iot_client = _get_iot_session(region=region)
 

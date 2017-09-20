@@ -38,17 +38,21 @@ After installation, for command line help type:
 
     gg_group_setup create -- --help
     gg_group_setup deploy -- --help
-    gg_group_setup clean_all -- --help
-    gg_group_setup clean_file -- --help
+    gg_group_setup create-core -- --help
+    gg_group_setup clean-all -- --help
+    gg_group_setup clean-file -- --help
 
 ### Quick Start
 
 The high-level process to create a Greengrass group using `gg_group_setup` is as
 follows:
 
-1. [Create](http://docs.aws.amazon.com/iot/latest/developerguide/thing-registry.html) and attach 
+1. Either... 
+    1. Call the `create-core` command with a new `thing_name` value 
+**or** 
+    1. [Create](http://docs.aws.amazon.com/iot/latest/developerguide/thing-registry.html) and attach 
 the Thing that will represent your Greengrass core to a [certificate](http://docs.aws.amazon.com/iot/latest/developerguide/managing-device-certs.html)
-1. Create and attach a Thing to a certificate that will represent a Greengrass device that will 
+    1. Create and attach a Thing to a certificate that will represent a Greengrass device that will 
 communicate with the core.
 1. [Create](http://docs.aws.amazon.com/lambda/latest/dg/with-scheduledevents-example.html) 
 and [alias](http://docs.aws.amazon.com/lambda/latest/dg/aliases-intro.html) your 
