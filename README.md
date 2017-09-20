@@ -173,4 +173,4 @@ be used in code as follows:
 ```
 
 The [`aws-greengrass-mini-fulfillment`](https://github.com/awslabs/aws-greengrass-mini-fulfillment) 
-repository creates and uses pretty complex custom group types.
+repository creates and uses pretty complex custom [group types](https://github.com/awslabs/aws-greengrass-mini-fulfillment/blob/master/groups/group_setup.py).
