@@ -12,14 +12,28 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
+import os
 import fire
 import boto3
 import logging
+from boto3.session import Session
 from botocore.exceptions import ClientError
 from gg_group_setup import GroupConfigFile
 
 logging.basicConfig(format='%(asctime)s|%(name)-8s|%(levelname)s: %(message)s',
                     level=logging.INFO)
+
+
+def _get_iot_session(region, profile_name=None):
+    if profile_name is None:
+        logging.debug("loading AWS IoT client using 'default' AWS CLI profile")
+        return Session(region_name=region).client('iot')
+
+    logging.debug("loading AWS IoT client using '{0}' AWS CLI profile".format(
+        profile_name))
+    return Session(
+        region_name=region,
+        profile_name=profile_name).client('iot')
 
 
 class GroupCommands(object):
@@ -276,6 +290,43 @@ class GroupCommands(object):
         logging.info('[begin] Deleting Group')
         config = GroupConfigFile(config_file=config_file)
 
+        iot_client = _get_iot_session(region=region)
+
+        # delete the Core's Certificate
+        core_cert_id = config['core']['cert_id']
+        core_cert_arn = config['core']['cert_arn']
+        core_thing_name = config['core']['thing_name']
+        logging.info('Deleting core_cert_id:{0}'.format(core_cert_id))
+        try:
+            # update certificate to an INACTIVE status.
+            logging.debug('[_delete] deactivating certificate:{0}'.format(
+                core_cert_id))
+            iot_client.update_certificate(
+                certificateId=core_cert_id, newStatus='INACTIVE'
+            )
+            # Next, detach the Thing principal/certificate from the Thing.
+            logging.debug(
+                '[_delete] detaching certificate:{0} from thing:{1}'.format(
+                    core_cert_arn, core_thing_name))
+            iot_client.detach_thing_principal(
+                thingName=core_thing_name, principal=core_cert_arn
+            )
+            # finally delete the Certificate
+            iot_client.delete_certificate(certificateId=core_cert_id)
+        except ClientError as ce:
+            logging.error(ce.message)
+
+        # delete the Core's Thing
+        logging.info('Deleting core_thing_name:{0}'.format(core_thing_name))
+        try:
+            thing = iot_client.describe_thing(thingName=core_thing_name)
+            iot_client.delete_thing(
+                thingName=core_thing_name, expectedVersion=thing['version']
+            )
+        except ClientError as ce:
+            logging.error(ce.message)
+
+        # delete the Greengrass Group entities
         gg_client = boto3.client("greengrass", region_name=region)
 
         logger_def_id = config['logger_def']['id']
@@ -371,6 +422,83 @@ class GroupCommands(object):
         print("Group deploy requested for deployment_id:{0}".format(
             dep_req['DeploymentId'],
         ))
+
+    def create_core(self, config_file, region='us-west-2', cert_dir=None):
+        """
+        Using the 'core > thing_name' value, creates a Thing in AWS IoT,
+        attaches and downloads new keys & certs to the certificate directory,
+        then records the created information in the local config file for
+        inclusion in the Greengrass Group as a Greengrass Core.
+
+        :param config_file: config file used to the create the thing used as a
+            Greengrass Core in the group
+        :param region: the region in which to create the new core. [default: us-west-2]
+        :param cert_dir: the directory in which to store the thing's keys and
+            certs. If `None` then use the current directory.
+        """
+        config = GroupConfigFile(config_file=config_file)
+        if config.is_fresh() is False:
+            raise ValueError(
+                "Config file already tracking previously created core or group"
+            )
+        t_name = config['core']['thing_name']
+
+        iot_client = _get_iot_session(region=region)
+
+        ###
+        # Here begins the essence of the `create_core` command
+        # Create a Key and Certificate in the AWS IoT service per Thing
+        keys_cert = iot_client.create_keys_and_certificate(setAsActive=True)
+        # Create a named Thing in the AWS IoT Service
+        thing = iot_client.create_thing(thingName=t_name)
+        # Attach the previously created Certificate to the created Thing
+        iot_client.attach_thing_principal(
+            thingName=t_name, principal=keys_cert['certificateArn'])
+        # This ends the essence of the `create_core` command
+        ###
+
+        cert_arn = keys_cert['certificateArn']
+        config['core'] = {
+            'thing_arn': thing['thingArn'],
+            'cert_arn': cert_arn,
+            'cert_id': keys_cert['certificateId'],
+            'thing_name': t_name
+        }
+        logging.debug("create_core cfg:{0}".format(config))
+        logging.info("Thing:'{0}' associated with cert:'{1}'".format(
+            t_name, cert_arn))
+
+        if cert_dir is None:
+            cfg_dir = os.getcwd()
+        else:
+            cfg_dir = cert_dir
+
+        # Save all Key and Certificate files locally for future use
+        try:
+            cert_name = cfg_dir + '/' + t_name + ".pem"
+            public_key_file = cfg_dir + '/' + t_name + ".pub"
+            private_key_file = cfg_dir + '/' + t_name + ".prv"
+            with open(cert_name, "w") as pem_file:
+                pem = keys_cert['certificatePem']
+                pem_file.write(pem)
+                logging.info("Thing Name: {0} and PEM file: {1}".format(
+                    t_name, cert_name))
+
+            with open(public_key_file, "w") as pub_file:
+                pub = keys_cert['keyPair']['PublicKey']
+                pub_file.write(pub)
+                logging.info("Thing Name: {0} Public Key File: {1}".format(
+                    t_name, public_key_file))
+
+            with open(private_key_file, "w") as prv_file:
+                prv = keys_cert['keyPair']['PrivateKey']
+                prv_file.write(prv)
+                logging.info("Thing Name: {0} Private Key File: {1}".format(
+                    t_name, private_key_file))
+        except OSError as ose:
+            logging.error(
+                'OSError while writing a key or cert file. {0}'.format(ose)
+            )
 
 
 def main():

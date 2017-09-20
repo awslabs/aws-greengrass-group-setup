@@ -68,7 +68,7 @@ class GroupConfigFile(object):
             for key, val in kwargs['device_def']:
                 config['device_def'][key] = val
             kwargs.pop('device_def')
-        if 'group' in kwargs.keys():
+        if 'group' in kwargs:
             for key, val in kwargs['group']:
                 logging.info('Updating group key:{0} and value:{0}'.format(
                     key, val))
@@ -97,9 +97,9 @@ class GroupConfigFile(object):
         cfg = self.get_config()
         if cfg is not None:
             if all(x == '' for x in (
-                    cfg['group']['id'], cfg['func_def']['id'],
-                    cfg['core_def']['id'], cfg['device_def']['id'],
-                    cfg['logger_def']['id']
+                    cfg['core']['cert_id'], cfg['group']['id'],
+                    cfg['func_def']['id'], cfg['core_def']['id'],
+                    cfg['device_def']['id'], cfg['logger_def']['id']
             )):
                 return True
 
@@ -107,6 +107,10 @@ class GroupConfigFile(object):
 
     def make_fresh(self):
         config = self.get_config()
+        # config['core']['thing_name'] = ''
+        config['core']['thing_arn'] = ''
+        config['core']['cert_arn'] = ''
+        config['core']['cert_id'] = ''
         config['group']['id'] = ''
         config['group']['version'] = ''
         config['group']['version_arn'] = ''
@@ -132,6 +136,9 @@ class GroupConfigFile(object):
         cfg = self.get_config()
         cfg[key] = val
         self.write_config(cfg)
+
+    def __str__(self):
+        return "{0}".format(self.get_config())
 
 
 class GroupType(object):
