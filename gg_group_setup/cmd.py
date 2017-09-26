@@ -21,7 +21,7 @@ from botocore.exceptions import ClientError
 from gg_group_setup import GroupConfigFile
 
 logging.basicConfig(format='%(asctime)s|%(name)-8s|%(levelname)s: %(message)s',
-                    level=logging.INFO)
+                    level=logging.DEBUG)
 
 
 def _get_iot_session(region, profile_name=None):
@@ -286,45 +286,9 @@ class GroupCommands(object):
         return sub_arn
 
     @staticmethod
-    def _delete(config_file, region='us-west-2'):
+    def _delete_group(config_file, region='us-west-2'):
         logging.info('[begin] Deleting Group')
         config = GroupConfigFile(config_file=config_file)
-
-        iot_client = _get_iot_session(region=region)
-
-        # delete the Core's Certificate
-        core_cert_id = config['core']['cert_id']
-        core_cert_arn = config['core']['cert_arn']
-        core_thing_name = config['core']['thing_name']
-        logging.info('Deleting core_cert_id:{0}'.format(core_cert_id))
-        try:
-            # update certificate to an INACTIVE status.
-            logging.debug('[_delete] deactivating certificate:{0}'.format(
-                core_cert_id))
-            iot_client.update_certificate(
-                certificateId=core_cert_id, newStatus='INACTIVE'
-            )
-            # Next, detach the Thing principal/certificate from the Thing.
-            logging.debug(
-                '[_delete] detaching certificate:{0} from thing:{1}'.format(
-                    core_cert_arn, core_thing_name))
-            iot_client.detach_thing_principal(
-                thingName=core_thing_name, principal=core_cert_arn
-            )
-            # finally delete the Certificate
-            iot_client.delete_certificate(certificateId=core_cert_id)
-        except ClientError as ce:
-            logging.error(ce.message)
-
-        # delete the Core's Thing
-        logging.info('Deleting core_thing_name:{0}'.format(core_thing_name))
-        try:
-            thing = iot_client.describe_thing(thingName=core_thing_name)
-            iot_client.delete_thing(
-                thingName=core_thing_name, expectedVersion=thing['version']
-            )
-        except ClientError as ce:
-            logging.error(ce.message)
 
         # delete the Greengrass Group entities
         gg_client = boto3.client("greengrass", region_name=region)
@@ -366,10 +330,86 @@ class GroupCommands(object):
         except ClientError as ce:
             logging.error(ce.message)
             return
-
         logging.info('[end] Deleted group')
 
-    def clean_file(self, config_file):
+    @staticmethod
+    def _delete_thing(cert_arn, cert_id, thing_name, region):
+        iot_client = _get_iot_session(region=region)
+
+        try:
+            # update certificate to an INACTIVE status.
+            logging.debug('[_delete_thing] deactivating cert:{0}'.format(
+                cert_id))
+            iot_client.update_certificate(
+                certificateId=cert_id, newStatus='INACTIVE'
+            )
+            # Next, detach the Thing principal/certificate from the Thing.
+            logging.debug(
+                '[_delete_thing] detaching cert:{0} from thing:{1}'.format(
+                    cert_arn, thing_name))
+            iot_client.detach_thing_principal(
+                thingName=thing_name, principal=cert_arn
+            )
+            # finally delete the Certificate
+            iot_client.delete_certificate(certificateId=cert_id)
+        except ClientError as ce:
+            logging.error(ce.message)
+
+        # delete the Thing
+        logging.info('Deleting thing_name:{0}'.format(thing_name))
+        try:
+            thing = iot_client.describe_thing(thingName=thing_name)
+            iot_client.delete_thing(
+                thingName=thing_name, expectedVersion=thing['version']
+            )
+        except ClientError as ce:
+            logging.error(ce.message)
+
+    @staticmethod
+    def clean_core(config_file, region='us-west-2'):
+        """
+        Clean all Core related provisioned artifacts from both the local file
+        and the AWS Greengrass service.
+
+        :param config_file:
+        :param region:
+        :return:
+        """
+        config = GroupConfigFile(config_file=config_file)
+
+        # delete the Core's Certificate
+        core_cert_id = config['core']['cert_id']
+        core_cert_arn = config['core']['cert_arn']
+        core_thing_name = config['core']['thing_name']
+        logging.info('Deleting core_thing_name:{0}'.format(core_thing_name))
+        GroupCommands._delete_thing(
+            cert_arn=core_cert_arn, cert_id=core_cert_id,
+            thing_name=core_thing_name, region=region
+        )
+        config.make_core_fresh()
+
+    @staticmethod
+    def clean_devices(config_file, region='us-west-2'):
+        """
+        Clean all device related provisioned artifacts from both the local file
+        and the AWS Greengrass service.
+
+        :param config_file:
+        :param region:
+        :return:
+        """
+        config = GroupConfigFile(config_file=config_file)
+        devices = config['devices']
+        for device in devices:
+            cert_arn = devices[device]['cert_arn']
+            cert_id = devices[device]['cert_id']
+            thing_name = device
+            logging.info('Deleting device_thing_name:{0}'.format(thing_name))
+            GroupCommands._delete_thing(cert_arn, cert_id, thing_name, region)
+        config.make_devices_fresh()
+
+    @staticmethod
+    def clean_file(config_file):
         """
         Clean all provisioned artifacts from the local config file.
 
@@ -396,7 +436,9 @@ class GroupCommands(object):
         if config.is_fresh() is True:
             raise ValueError("Config is already clean.")
 
-        self._delete(config_file, region=region)
+        self._delete_group(config_file, region=region)
+        GroupCommands.clean_core(config_file, region=region)
+        GroupCommands.clean_devices(config_file, region=region)
         self.clean_file(config_file)
 
         logging.info('[end] Cleaned all provisioned artifacts')
@@ -423,7 +465,54 @@ class GroupCommands(object):
             dep_req['DeploymentId'],
         ))
 
-    def create_core(self, thing_name, config_file, region='us-west-2', cert_dir=None):
+    def create_thing(self, thing_name, region='us-west-2', cert_dir=None):
+        iot_client = _get_iot_session(region=region)
+        ###
+        # Here begins the essence of the `create_core` command
+        # Create a Key and Certificate in the AWS IoT service per Thing
+        keys_cert = iot_client.create_keys_and_certificate(setAsActive=True)
+        # Create a named Thing in the AWS IoT Service
+        thing = iot_client.create_thing(thingName=thing_name)
+        # Attach the previously created Certificate to the created Thing
+        iot_client.attach_thing_principal(
+            thingName=thing_name, principal=keys_cert['certificateArn'])
+        # This ends the essence of the `create_core` command
+        ###
+        if cert_dir is None:
+            cfg_dir = os.getcwd()
+        else:
+            cfg_dir = cert_dir
+
+        # Save all Key and Certificate files locally for future use
+        try:
+            cert_name = cfg_dir + '/' + thing_name + ".pem"
+            public_key_file = cfg_dir + '/' + thing_name + ".pub"
+            private_key_file = cfg_dir + '/' + thing_name + ".prv"
+            with open(cert_name, "w") as pem_file:
+                pem = keys_cert['certificatePem']
+                pem_file.write(pem)
+                logging.info("Thing Name: {0} and PEM file: {1}".format(
+                    thing_name, cert_name))
+
+            with open(public_key_file, "w") as pub_file:
+                pub = keys_cert['keyPair']['PublicKey']
+                pub_file.write(pub)
+                logging.info("Thing Name: {0} Public Key File: {1}".format(
+                    thing_name, public_key_file))
+
+            with open(private_key_file, "w") as prv_file:
+                prv = keys_cert['keyPair']['PrivateKey']
+                prv_file.write(prv)
+                logging.info("Thing Name: {0} Private Key File: {1}".format(
+                    thing_name, private_key_file))
+        except OSError as ose:
+            logging.error(
+                'OSError while writing a key or cert file. {0}'.format(ose)
+            )
+        return keys_cert, thing
+
+    def create_core(self, thing_name, config_file, region='us-west-2',
+                    cert_dir=None):
         """
         Using the `thing_name` value, creates a Thing in AWS IoT, attaches and
         downloads new keys & certs to the certificate directory, then records
@@ -443,64 +532,65 @@ class GroupCommands(object):
             raise ValueError(
                 "Config file already tracking previously created core or group"
             )
-        t_name = thing_name
-
-        iot_client = _get_iot_session(region=region)
-
-        ###
-        # Here begins the essence of the `create_core` command
-        # Create a Key and Certificate in the AWS IoT service per Thing
-        keys_cert = iot_client.create_keys_and_certificate(setAsActive=True)
-        # Create a named Thing in the AWS IoT Service
-        thing = iot_client.create_thing(thingName=t_name)
-        # Attach the previously created Certificate to the created Thing
-        iot_client.attach_thing_principal(
-            thingName=t_name, principal=keys_cert['certificateArn'])
-        # This ends the essence of the `create_core` command
-        ###
+        keys_cert, thing = self.create_thing(thing_name, region, cert_dir)
 
         cert_arn = keys_cert['certificateArn']
         config['core'] = {
             'thing_arn': thing['thingArn'],
             'cert_arn': cert_arn,
             'cert_id': keys_cert['certificateId'],
-            'thing_name': t_name
+            'thing_name': thing_name
         }
         logging.debug("create_core cfg:{0}".format(config))
         logging.info("Thing:'{0}' associated with cert:'{1}'".format(
-            t_name, cert_arn))
+            thing_name, cert_arn))
 
-        if cert_dir is None:
-            cfg_dir = os.getcwd()
-        else:
-            cfg_dir = cert_dir
+    def create_devices(self, thing_names, config_file, region='us-west-2',
+                       cert_dir=None, append=False):
+        """
+        Using the `thing_names` values, creates Things in AWS IoT, attaches and
+        downloads new keys & certs to the certificate directory, then records
+        the created information in the local config file for inclusion in the
+        Greengrass Group as Greengrass Devices.
 
-        # Save all Key and Certificate files locally for future use
-        try:
-            cert_name = cfg_dir + '/' + t_name + ".pem"
-            public_key_file = cfg_dir + '/' + t_name + ".pub"
-            private_key_file = cfg_dir + '/' + t_name + ".prv"
-            with open(cert_name, "w") as pem_file:
-                pem = keys_cert['certificatePem']
-                pem_file.write(pem)
-                logging.info("Thing Name: {0} and PEM file: {1}".format(
-                    t_name, cert_name))
-
-            with open(public_key_file, "w") as pub_file:
-                pub = keys_cert['keyPair']['PublicKey']
-                pub_file.write(pub)
-                logging.info("Thing Name: {0} Public Key File: {1}".format(
-                    t_name, public_key_file))
-
-            with open(private_key_file, "w") as prv_file:
-                prv = keys_cert['keyPair']['PrivateKey']
-                prv_file.write(prv)
-                logging.info("Thing Name: {0} Private Key File: {1}".format(
-                    t_name, private_key_file))
-        except OSError as ose:
-            logging.error(
-                'OSError while writing a key or cert file. {0}'.format(ose)
+        :param thing_names: the thing name or list of thing names to create and
+            use as Greengrass Devices
+        :param config_file: config file used to track the Greengrass Devices in
+            the group
+        :param region: the region in which to create the new devices.
+            [default: us-west-2]
+        :param cert_dir: the directory in which to store the thing's keys and
+            certs. If `None` then use the current directory.
+        :param append: append the created devices to the list of devices in the
+            config file. [default: False]
+        """
+        logging.info("create_devices thing_names:{0}".format(thing_names))
+        config = GroupConfigFile(config_file=config_file)
+        if config.is_fresh() is False:
+            raise ValueError(
+                "Config file already tracking previously created core or group"
             )
+        # if isinstance(thing_names, list) is False:
+        #     thing_names = list(thing_names)
+
+        devices = dict()
+        if append:
+            devices = config['devices']
+
+        for thing_name in thing_names:
+            keys_cert, thing = self.create_thing(thing_name, region, cert_dir)
+            cert_arn = keys_cert['certificateArn']
+            devices[thing_name] = {
+                'thing_arn': thing['thingArn'],
+                'cert_arn': cert_arn,
+                'cert_id': keys_cert['certificateId'],
+                'thing_name': thing_name
+            }
+            logging.info("Thing:'{0}' associated with cert:'{1}'".format(
+                thing_name, cert_arn))
+
+        config['devices'] = devices
+        logging.info("create_devices cfg:{0}".format(config))
 
 
 def main():

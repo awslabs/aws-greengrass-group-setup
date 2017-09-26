@@ -107,10 +107,6 @@ class GroupConfigFile(object):
 
     def make_fresh(self):
         config = self.get_config()
-        config['core']['thing_name'] = ''
-        config['core']['thing_arn'] = ''
-        config['core']['cert_arn'] = ''
-        config['core']['cert_id'] = ''
         config['group']['id'] = ''
         config['group']['version'] = ''
         config['group']['version_arn'] = ''
@@ -124,6 +120,28 @@ class GroupConfigFile(object):
         config['logger_def']['version_arn'] = ''
         config['subscription_def']['id'] = ''
         config['subscription_def']['version_arn'] = ''
+        self.write_config(config=config)
+        self.make_core_fresh()
+        self.make_devices_fresh()
+
+    def make_core_fresh(self):
+        config = self.get_config()
+        config['core']['thing_name'] = ''
+        config['core']['thing_arn'] = ''
+        config['core']['cert_arn'] = ''
+        config['core']['cert_id'] = ''
+        self.write_config(config=config)
+
+    def make_devices_fresh(self):
+        config = self.get_config()
+        config['devices'] = {
+            'device_thing_name': {
+                'cert_arn': '',
+                'cert_id': '',
+                'thing_name': '',
+                'thing_arn': ''
+            }
+        }
         self.write_config(config=config)
 
     def read(self, prop):
