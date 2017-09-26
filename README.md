@@ -7,6 +7,7 @@ of an entire AWS Greengrass group.
 
 Usually the following discrete steps are necessary to setup and deploy a Greengrass group.
 
+- [`create_thing`](http://docs.aws.amazon.com/iot/latest/developerguide/thing-registry.html)
 - [`create_core_definition`](https://boto3.readthedocs.io/en/latest/reference/services/greengrass.html#Greengrass.Client.create_core_definition)
 - [`create_device_definition`](https://boto3.readthedocs.io/en/latest/reference/services/greengrass.html#Greengrass.Client.create_device_definition)
 - [`create_function_definition`](https://boto3.readthedocs.io/en/latest/reference/services/greengrass.html#Greengrass.Client.create_function_definition)
@@ -22,8 +23,9 @@ created. It also provides a:
     necessary to create a Greengrass Group. 
 - `GroupType` which can be sub-classed for more complex `GroupCommands` scenarios
 
-`gg_group_setup` includes five commands: 
-`create`, `deploy`, `create-core`, `clean-all`, and `clean-file`.
+`gg_group_setup` includes multiple commands: 
+`create`, `deploy`, `create-core`, `create-devices`, `clean-core`, 
+`clean-devices`, `clean-file`, and `clean-all`.
 
 After installation you can use these commands from the Command Line Interface, or 
 you can use them from within a program via the `GroupCommands` class. 
@@ -39,51 +41,24 @@ After installation, for command line help type:
     gg_group_setup create -- --help
     gg_group_setup deploy -- --help
     gg_group_setup create-core -- --help
-    gg_group_setup clean-all -- --help
+    gg_group_setup create-devices -- --help
+    gg_group_setup clean-core -- --help
+    gg_group_setup clean-devices -- --help
     gg_group_setup clean-file -- --help
+    gg_group_setup clean-all -- --help
 
 ### Quick Start
 
 The high-level process to create a Greengrass group using `gg_group_setup` is as
 follows:
 
-1. Either... 
-    1. Execute `gg_group_setup create-core <thing_name> <config_file>` -- to 
-    create a Greengrass Core named `thing_name`
-1. **or** 
-    1. [Create](http://docs.aws.amazon.com/iot/latest/developerguide/thing-registry.html) and attach 
-the Thing that will represent your Greengrass core to a [certificate](http://docs.aws.amazon.com/iot/latest/developerguide/managing-device-certs.html)
-    1. Update the group `<config_file>`. Example: `cfg.json`
-        1. In the `core` section of the configuration, enter the `cert_arn`, 
-        `cert_id`, `thing_arn`, and  `thing_name` of the thing you want to 
-        represent your Greengrass core.
-            ```json
-            "core": {
-              "cert_arn": "<core_cert_ARN>",
-              "cert_id": "<core_cert_ID>",
-              "thing_arn": "<core_thing_ARN>",
-              "thing_name": "<thing_name>"
-            },
-            ```
-
+1. Execute `$ gg_group_setup create-core <thing_name> <config_file>` -- to create a Greengrass Core named `thing_name`
+1. Execute `$ gg_group_setup create-devices '[<device_thing_name_01>,<device_thing_name_02,...]' <config_file>`
+  -- to create things for use as devices in your Greengrass Group.
 1. [Create](http://docs.aws.amazon.com/lambda/latest/dg/with-scheduledevents-example.html) 
 and [alias](http://docs.aws.amazon.com/lambda/latest/dg/aliases-intro.html) your 
 Lambda function(s) 
-1. Create and attach a Thing to a certificate that will represent a Greengrass device that will 
-communicate with the core.
 1. Update the group `<config_file>`. Example: `cfg.json`
-    1. update the `devices` section
-        1. In the `devices` section of the configuration, enter the `cert_arn`, `thing_arn`, and 
-        `thing_name` of the Thing you want to represent your Greengrass device.
-            ```json
-            "devices": {
-              "<device_thing_name>": {
-                "cert_arn": "<device_cert_ARN>",
-                "thing_arn": "<device_thing_ARN>",
-                "thing_name": "<device_thing_name>"
-              }
-            },
-            ```
     1. update the `lambda_functions` section
         1. In the `lambda_functions` section of the configuration, replace `<function_name>` 
         with the name of the Lambda function configured and aliased previously. Then for 
@@ -141,8 +116,8 @@ to extract the software onto the Greengrass core.
 the Greengrass core's certificates onto the core device
 1. [Start](http://docs.aws.amazon.com/greengrass/latest/userguide/start-core.html) 
 your Greengrass core
-1. Execute `$ gg_group_setup create <group_type> <config_file>` -- to create the group
-1. Execute `$ gg_group_setup deploy <config_file>` -- to deploy the group
+1. Execute `$ gg_group_setup create <group_type> <config_file>` -- to create the Greengrass group
+1. Execute `$ gg_group_setup deploy <config_file>` -- to deploy the Greengrass group
 
 > Note: **gg_group_setup** also includes a Mock Device Lambda function you can use to 
 get started. 
@@ -173,5 +148,14 @@ be used in code as follows:
     )
 ```
 
+### Using the `config_file` manually
+
+Although the helper commands `create-core` and `create-devices` will create 
+things and store the proper information in the given `config_file`, you can also 
+ignore those commands if you want to enter all the information manually. 
+The `create`, `deploy`, and `clean-all` Greengrass group commands will use the 
+`config_file` information as stored. 
+
+### Projects using `gg_group_setup`
 The [`aws-greengrass-mini-fulfillment`](https://github.com/awslabs/aws-greengrass-mini-fulfillment) 
 repository creates and uses pretty complex custom [group types](https://github.com/awslabs/aws-greengrass-mini-fulfillment/blob/master/groups/group_setup.py).
