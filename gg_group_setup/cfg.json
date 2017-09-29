@@ -13,10 +13,11 @@
     "version_arn": ""
   },
   "devices": {
-    "GGD_example": {
-      "cert_arn": "arn:aws:iot:us-west-2:<account_id>:cert/EXAMPLEEXAMPLEa95f4e32EXAMPLEa888e13EXAMPLEac56337EXAMPLEeed338a",
-      "thing_arn": "arn:aws:iot:us-west-2:<account_id>:thing/<device_thing_name>",
-      "thing_name": "<device_thing_name>"
+    "device_thing_name": {
+      "cert_arn": "",
+      "cert_id": "",
+      "thing_arn": "",
+      "thing_name": ""
     }
   },
   "func_def": {
