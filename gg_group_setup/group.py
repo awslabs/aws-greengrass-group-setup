@@ -97,7 +97,7 @@ class GroupConfigFile(object):
         cfg = self.get_config()
         if cfg is not None:
             if all(x == '' for x in (
-                    cfg['core']['cert_id'], cfg['group']['id'],
+                    cfg['group']['id'],
                     cfg['func_def']['id'], cfg['core_def']['id'],
                     cfg['device_def']['id'], cfg['logger_def']['id']
             )):
