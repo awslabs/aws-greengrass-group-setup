@@ -566,12 +566,11 @@ class GroupCommands(object):
         """
         logging.info("create_devices thing_names:{0}".format(thing_names))
         config = GroupConfigFile(config_file=config_file)
-        if config.is_fresh() is False:
+        if append is False and config.is_device_fresh() is False:
             raise ValueError(
-                "Config file already tracking previously created core or group"
+                "Config file tracking previously created devices. Append "
+                "devices instead"
             )
-        # if isinstance(thing_names, list) is False:
-        #     thing_names = list(thing_names)
 
         devices = dict()
         if append:

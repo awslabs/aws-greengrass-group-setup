@@ -105,6 +105,19 @@ class GroupConfigFile(object):
 
         return False
 
+    def is_device_fresh(self):
+        cfg = self.get_config()
+        if cfg is not None:
+            devices = cfg['devices']
+            if 'device_thing_name' in devices and \
+                    devices['device_thing_name']['cert_arn'] == "" and \
+                    devices['device_thing_name']['cert_id'] == "" and \
+                    devices['device_thing_name']['thing_arn'] == "" and \
+                    devices['device_thing_name']['thing_name'] == "":
+                return True
+
+        return False
+
     def make_fresh(self):
         config = self.get_config()
         config['group']['id'] = ''
