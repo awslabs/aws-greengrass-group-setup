@@ -336,6 +336,13 @@ class GroupCommands(object):
 
         group_id = config['group']['id']
         logging.info('Deleting group_id:{0}'.format(group_id))
+        deployments = gg_client.list_deployments(
+            GroupId=group_id, MaxResults='1'
+        )
+        if len(deployments) > 0:
+            # there were previously deployments which need reset before delete
+            gg_client.reset_deployments(GroupId=group_id)
+
         try:
             gg_client.delete_group(GroupId=group_id)
         except ClientError as ce:
