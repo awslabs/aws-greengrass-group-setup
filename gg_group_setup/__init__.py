@@ -13,4 +13,4 @@
 from .group import GroupConfigFile, GroupType
 from .cmd import GroupCommands, main
 
-__version__ = '0.4.5'
+__version__ = '0.4.6'
