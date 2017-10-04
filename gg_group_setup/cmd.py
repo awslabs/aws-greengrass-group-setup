@@ -14,6 +14,7 @@
 
 import os
 import fire
+import json
 import boto3
 import logging
 from boto3.session import Session
@@ -665,7 +666,7 @@ class GroupCommands(object):
                 }
             ]
         }
-        return core_policy
+        return json.dumps(core_policy)
 
     def create_devices(self, thing_names, config_file, region=None,
                        cert_dir=None, append=False, account_id=None,
@@ -741,7 +742,7 @@ class GroupCommands(object):
                 "Resource": [arn]
             }]
         }
-        return device_policy
+        return json.dumps(device_policy)
 
 
 def main():
