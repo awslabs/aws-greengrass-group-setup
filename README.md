@@ -139,7 +139,7 @@ be used in code as follows:
     group_name = "<group_name>"  # if `None`, the group_type value will be used
     region = "<aws_region>"  # AWS region in which the group will be created
  
-    gc = GroupCommands(group_types = {
+    gc = GroupCommands(group_types={
         CustomGroupType.CUSTOM_TYPE: CustomGroupType
     })
     gc.create(
