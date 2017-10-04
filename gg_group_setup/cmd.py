@@ -620,7 +620,7 @@ class GroupCommands(object):
                         "iot:UpdateThingShadow",
                         "iot:DeleteThingShadow"
                     ],
-                    "Resource": "arn:aws:iot:{0}:{1}:thing/*".format(
+                    "Resource": "arn:aws:iot:{0}:{1}:*".format(
                         region, config['misc']['account_id']
                     )
                 },
@@ -629,9 +629,7 @@ class GroupCommands(object):
                     "Action": [
                         "greengrass:*"
                     ],
-                    "Resource": "arn:aws:iot:{0}:{1}:thing/*".format(
-                        region, config['misc']['account_id']
-                    )
+                    "Resource": ["*"]
                 }
             ]
         }
