@@ -37,6 +37,10 @@
     "id": "",
     "version_arn": ""
   },
+  "misc": {
+    "account_id": "",
+    "iot_endpoint": ""
+  },
   "subscription_def": {
     "id": "",
     "version_arn": ""

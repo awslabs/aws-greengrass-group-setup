@@ -37,7 +37,7 @@ def _get_iot_session(region, profile_name=None):
 
 
 class GroupCommands(object):
-    def __init__(self, group_types=None):
+    def __init__(self, group_types=None, region='us-west-2', profile_name=None):
         """
         Commands used to create a Greengrass group.
 
@@ -51,9 +51,11 @@ class GroupCommands(object):
         """
         super(GroupCommands, self).__init__()
         self.group_types = group_types
+        self._region = region
+        self._profile_name = profile_name
 
-    def create(self, group_type, config_file,
-               group_name=None, region='us-west-2'):
+    def create(self, group_type, config_file, group_name=None,
+               region=None):
         """
         Create a Greengrass group in the given region.
 
@@ -78,9 +80,18 @@ class GroupCommands(object):
                 self.group_types)
             )
 
+        if region is None:
+            region = self._region
+
         # create an instance of the requested group type that uses the given
         # config file and region
         gt = self.group_types[group_type](config=config, region=region)
+
+        # get and store the account's IoT endpoint for future use
+        ep = _get_iot_session(region=region).describe_endpoint()
+        misc = config['misc']
+        misc['iot_endpoint'] = ep['endpointAddress']
+        config['misc'] = misc
 
         # Create a Group
         logging.info("[begin] Creating a Greengrass Group")
@@ -366,7 +377,29 @@ class GroupCommands(object):
             logging.error(ce.message)
 
     @staticmethod
-    def clean_core(config_file, region='us-west-2'):
+    def _create_attach_thing_policy(cert_arn, thing_policy, iot_client,
+                                    policy_name):
+        if thing_policy:
+            try:
+                iot_client.create_policy(
+                    policyName=policy_name,
+                    policyDocument=thing_policy
+                )
+            except BaseException as e:
+                logging.error("Error:{0} type: {1} message: {2}".format(
+                    e, str(type(e)), e.message))
+
+            # even if there's an exception creating the policy, try to attach
+            iot_client.attach_principal_policy(
+                policyName=policy_name,
+                principal=cert_arn
+            )
+            logging.info("Created {0} and attached to {1}".format(
+                policy_name, cert_arn))
+        else:
+            logging.warning("No thing policy to create and attach.")
+
+    def clean_core(self, config_file, region=None):
         """
         Clean all Core related provisioned artifacts from both the local file
         and the AWS Greengrass service.
@@ -376,6 +409,9 @@ class GroupCommands(object):
         :return:
         """
         config = GroupConfigFile(config_file=config_file)
+
+        if region is None:
+            region = self._region
 
         # delete the Core's Certificate
         core_cert_id = config['core']['cert_id']
@@ -388,8 +424,7 @@ class GroupCommands(object):
         )
         config.make_core_fresh()
 
-    @staticmethod
-    def clean_devices(config_file, region='us-west-2'):
+    def clean_devices(self, config_file, region=None):
         """
         Clean all device related provisioned artifacts from both the local file
         and the AWS Greengrass service.
@@ -399,6 +434,9 @@ class GroupCommands(object):
         :return:
         """
         config = GroupConfigFile(config_file=config_file)
+        if region is None:
+            region = self._region
+
         devices = config['devices']
         for device in devices:
             cert_arn = devices[device]['cert_arn']
@@ -423,7 +461,7 @@ class GroupCommands(object):
         config.make_fresh()
         logging.info('[end] Cleaned config file:{0}'.format(config_file))
 
-    def clean_all(self, config_file, region='us-west-2'):
+    def clean_all(self, config_file, region=None):
         """
         Clean all provisioned artifacts from both the local file and the AWS
         Greengrass service.
@@ -436,14 +474,17 @@ class GroupCommands(object):
         if config.is_fresh() is True:
             raise ValueError("Config is already clean.")
 
+        if region is None:
+            region = self._region
+
         self._delete_group(config_file, region=region)
-        GroupCommands.clean_core(config_file, region=region)
-        GroupCommands.clean_devices(config_file, region=region)
+        self.clean_core(config_file, region=region)
+        self.clean_devices(config_file, region=region)
         self.clean_file(config_file)
 
         logging.info('[end] Cleaned all provisioned artifacts')
 
-    def deploy(self, config_file, region='us-west-2'):
+    def deploy(self, config_file, region=None):
         """
         Deploy the configuration and Lambda functions of a Greengrass group to
         the Greengrass core contained in the group.
@@ -455,6 +496,9 @@ class GroupCommands(object):
         if config.is_fresh():
             raise ValueError("Config not yet tracking a group. Cannot deploy.")
 
+        if region is None:
+            region = self._region
+
         gg_client = boto3.client("greengrass", region_name=region)
         dep_req = gg_client.create_deployment(
             GroupId=config['group']['id'],
@@ -465,7 +509,9 @@ class GroupCommands(object):
             dep_req['DeploymentId'],
         ))
 
-    def create_thing(self, thing_name, region='us-west-2', cert_dir=None):
+    def create_thing(self, thing_name, region=None, cert_dir=None):
+        if region is None:
+            region = self._region
         iot_client = _get_iot_session(region=region)
         ###
         # Here begins the essence of the `create_core` command
@@ -511,8 +557,8 @@ class GroupCommands(object):
             )
         return keys_cert, thing
 
-    def create_core(self, thing_name, config_file, region='us-west-2',
-                    cert_dir=None):
+    def create_core(self, thing_name, config_file, region=None,
+                    cert_dir=None, policy_name='ggc-default-policy'):
         """
         Using the `thing_name` value, creates a Thing in AWS IoT, attaches and
         downloads new keys & certs to the certificate directory, then records
@@ -526,12 +572,16 @@ class GroupCommands(object):
         :param region: the region in which to create the new core. [default: us-west-2]
         :param cert_dir: the directory in which to store the thing's keys and
             certs. If `None` then use the current directory.
+        :param policy_name: the name of the policy to associate with the device.
+            [default: 'ggc-default-policy']
         """
         config = GroupConfigFile(config_file=config_file)
         if config.is_fresh() is False:
             raise ValueError(
                 "Config file already tracking previously created core or group"
             )
+        if region is None:
+            region = self._region
         keys_cert, thing = self.create_thing(thing_name, region, cert_dir)
 
         cert_arn = keys_cert['certificateArn']
@@ -544,9 +594,52 @@ class GroupCommands(object):
         logging.debug("create_core cfg:{0}".format(config))
         logging.info("Thing:'{0}' associated with cert:'{1}'".format(
             thing_name, cert_arn))
+        core_policy = self.get_core_policy(
+            core_name=thing_name, config_file=config_file, region=region)
+        iot_client = _get_iot_session(region=region)
+        self._create_attach_thing_policy(
+            cert_arn, core_policy,
+            iot_client=iot_client, policy_name=policy_name
+        )
 
-    def create_devices(self, thing_names, config_file, region='us-west-2',
-                       cert_dir=None, append=False):
+    def get_core_policy(self, core_name, config_file, region=None):
+        config = GroupConfigFile(config_file=config_file)
+        if region is None:
+            region = self._region
+        core_policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "iot:Publish",
+                        "iot:Subscribe",
+                        "iot:Connect",
+                        "iot:Receive"
+                        "iot:GetThingShadow",
+                        "iot:UpdateThingShadow",
+                        "iot:DeleteThingShadow"
+                    ],
+                    "Resource": "arn:aws:iot:{0}:{1}:thing/*".format(
+                        region, config['misc']['account_id']
+                    )
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "greengrass:*"
+                    ],
+                    "Resource": "arn:aws:iot:{0}:{1}:thing/*".format(
+                        region, config['misc']['account_id']
+                    )
+                }
+            ]
+        }
+        return core_policy
+
+    def create_devices(self, thing_names, config_file, region=None,
+                       cert_dir=None, append=False, account_id=None,
+                       policy_name='ggd-discovery-policy'):
         """
         Using the `thing_names` values, creates Things in AWS IoT, attaches and
         downloads new keys & certs to the certificate directory, then records
@@ -563,6 +656,11 @@ class GroupCommands(object):
             certs. If `None` then use the current directory.
         :param append: append the created devices to the list of devices in the
             config file. [default: False]
+        :param account_id: the account ID in which to create devices. If 'None'
+            the config_file will be checked for an `account_id` value in the
+            `misc` section.
+        :param policy_name: the name of the policy to associate with the device.
+            [default: 'ggd-discovery-policy']
         """
         logging.info("create_devices thing_names:{0}".format(thing_names))
         config = GroupConfigFile(config_file=config_file)
@@ -572,10 +670,15 @@ class GroupCommands(object):
                 "devices instead"
             )
 
+        if region is None:
+            region = self._region
+        if account_id is None:
+            account_id = config['misc']['account_id']
         devices = dict()
         if append:
             devices = config['devices']
 
+        iot_client = _get_iot_session(region=region)
         for thing_name in thing_names:
             keys_cert, thing = self.create_thing(thing_name, region, cert_dir)
             cert_arn = keys_cert['certificateArn']
@@ -587,16 +690,39 @@ class GroupCommands(object):
             }
             logging.info("Thing:'{0}' associated with cert:'{1}'".format(
                 thing_name, cert_arn))
+            device_policy = self.get_device_policy(
+                device_name=thing_name, config_file=config_file,
+                account_id=account_id, region=region
+            )
+            self._create_attach_thing_policy(cert_arn, device_policy,
+                                             iot_client, policy_name)
 
         config['devices'] = devices
         logging.info("create_devices cfg:{0}".format(config))
 
+    def get_device_policy(self, device_name, config_file, account_id, region=None):
+        config = GroupConfigFile(config_file=config_file)
+        if region is None:
+            region = self._region
+        device_policy = {
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Action": "greengrass:Discover",
+                "Resource": [
+                    "arn:aws:iot:{0}:{1}:thing/*".format(
+                        region, account_id
+                    )]
+            }]
+        }
+        return device_policy
+
 
 def main():
     from mock_group import MockGroupType
-    gc = GroupCommands(group_types={
-            MockGroupType.MOCK_TYPE: MockGroupType
-        }
+    gc = GroupCommands(
+        group_types={MockGroupType.MOCK_TYPE: MockGroupType},
+        region='us-west-2'
     )
     fire.Fire(gc)
 

@@ -74,6 +74,10 @@ class GroupConfigFile(object):
                     key, val))
                 config['group'][key] = val
             kwargs.pop('group')
+        if 'misc' in kwargs:
+            for key, val in kwargs['misc']:
+                config['misc'][key] = val
+            kwargs.pop('misc')
 
         if len(kwargs) > 0:
             # treat the rest of the kwargs as simple property value assignments
