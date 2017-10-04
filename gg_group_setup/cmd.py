@@ -37,7 +37,8 @@ def _get_iot_session(region, profile_name=None):
 
 
 class GroupCommands(object):
-    def __init__(self, group_types=None, region='us-west-2', profile_name=None):
+    def __init__(self, group_types=None, account_id=None,
+                 region='us-west-2', profile_name=None):
         """
         Commands used to create a Greengrass group.
 
@@ -52,6 +53,7 @@ class GroupCommands(object):
         super(GroupCommands, self).__init__()
         self.group_types = group_types
         self._region = region
+        self._account_id = account_id
         self._profile_name = profile_name
 
     def create(self, group_type, config_file, group_name=None,
@@ -340,7 +342,8 @@ class GroupCommands(object):
             GroupId=group_id, MaxResults='1'
         )
         if len(deployments) > 0:
-            # there were previously deployments which need reset before delete
+            # there were previous deployments which need reset before delete
+            logging.info('Reset deployments for group_id:{0}'.format(group_id))
             gg_client.reset_deployments(GroupId=group_id)
 
         try:
@@ -405,6 +408,18 @@ class GroupCommands(object):
                 policy_name, cert_arn))
         else:
             logging.warning("No thing policy to create and attach.")
+
+    def _most_restrictive_arn(self, account_id, region):
+        if account_id is None:
+            account_id = self._account_id
+
+        # Make as restrictive as generically possible.
+        if account_id is None:
+            arn = "arn:aws:iot:{0}::*".format(region)
+        else:
+            arn = "arn:aws:iot:{0}:{1}:*".format(region, account_id)
+
+        return arn
 
     def clean_core(self, config_file, region=None):
         """
@@ -565,7 +580,8 @@ class GroupCommands(object):
         return keys_cert, thing
 
     def create_core(self, thing_name, config_file, region=None,
-                    cert_dir=None, policy_name='ggc-default-policy'):
+                    cert_dir=None, account_id=None,
+                    policy_name='ggc-default-policy'):
         """
         Using the `thing_name` value, creates a Thing in AWS IoT, attaches and
         downloads new keys & certs to the certificate directory, then records
@@ -576,9 +592,12 @@ class GroupCommands(object):
             Greengrass Core
         :param config_file: config file used to track the Greengrass Core in the
             group
-        :param region: the region in which to create the new core. [default: us-west-2]
+        :param region: the region in which to create the new core.
+            [default: us-west-2]
         :param cert_dir: the directory in which to store the thing's keys and
             certs. If `None` then use the current directory.
+        :param account_id: the account_id in which to create the new core.
+            [default: None]
         :param policy_name: the name of the policy to associate with the device.
             [default: 'ggc-default-policy']
         """
@@ -589,6 +608,8 @@ class GroupCommands(object):
             )
         if region is None:
             region = self._region
+        if account_id is None:
+            account_id = self._account_id
         keys_cert, thing = self.create_thing(thing_name, region, cert_dir)
 
         cert_arn = keys_cert['certificateArn']
@@ -602,17 +623,18 @@ class GroupCommands(object):
         logging.info("Thing:'{0}' associated with cert:'{1}'".format(
             thing_name, cert_arn))
         core_policy = self.get_core_policy(
-            core_name=thing_name, config_file=config_file, region=region)
+            core_name=thing_name, account_id=account_id, region=region)
         iot_client = _get_iot_session(region=region)
         self._create_attach_thing_policy(
             cert_arn, core_policy,
             iot_client=iot_client, policy_name=policy_name
         )
 
-    def get_core_policy(self, core_name, config_file, region=None):
-        config = GroupConfigFile(config_file=config_file)
+    def get_core_policy(self, core_name, account_id=None, region=None):
         if region is None:
             region = self._region
+        arn = self._most_restrictive_arn(account_id, region)
+
         core_policy = {
             "Version": "2012-10-17",
             "Statement": [
@@ -622,21 +644,24 @@ class GroupCommands(object):
                         "iot:Publish",
                         "iot:Subscribe",
                         "iot:Connect",
-                        "iot:Receive"
+                        "iot:Receive",
                         "iot:GetThingShadow",
                         "iot:UpdateThingShadow",
                         "iot:DeleteThingShadow"
                     ],
-                    "Resource": "arn:aws:iot:{0}:{1}:*".format(
-                        region, config['misc']['account_id']
-                    )
+                    "Resource": [arn]
                 },
                 {
                     "Effect": "Allow",
                     "Action": [
-                        "greengrass:*"
+                        "greengrass:UpdateConnectivityInfo",
+                        "greengrass:AssumeRoleForGroup",
+                        "greengrass:CreateCertificate",
+                        "greengrass:GetConnectivityInfo",
+                        "greengrass:UpdateCoreDeploymentStatus",
+                        "greengrass:GetDeploymentArtifacts"
                     ],
-                    "Resource": ["*"]
+                    "Resource": [arn]
                 }
             ]
         }
@@ -678,7 +703,7 @@ class GroupCommands(object):
         if region is None:
             region = self._region
         if account_id is None:
-            account_id = config['misc']['account_id']
+            account_id = self._account_id
         devices = dict()
         if append:
             devices = config['devices']
@@ -696,8 +721,7 @@ class GroupCommands(object):
             logging.info("Thing:'{0}' associated with cert:'{1}'".format(
                 thing_name, cert_arn))
             device_policy = self.get_device_policy(
-                device_name=thing_name, config_file=config_file,
-                account_id=account_id, region=region
+                device_name=thing_name, account_id=account_id, region=region
             )
             self._create_attach_thing_policy(cert_arn, device_policy,
                                              iot_client, policy_name)
@@ -705,19 +729,16 @@ class GroupCommands(object):
         config['devices'] = devices
         logging.info("create_devices cfg:{0}".format(config))
 
-    def get_device_policy(self, device_name, config_file, account_id, region=None):
-        config = GroupConfigFile(config_file=config_file)
+    def get_device_policy(self, device_name, account_id, region=None):
         if region is None:
             region = self._region
+        arn = self._most_restrictive_arn(account_id, region)
         device_policy = {
             "Version": "2012-10-17",
             "Statement": [{
                 "Effect": "Allow",
                 "Action": "greengrass:Discover",
-                "Resource": [
-                    "arn:aws:iot:{0}:{1}:thing/*".format(
-                        region, account_id
-                    )]
+                "Resource": [arn]
             }]
         }
         return device_policy
