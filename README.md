@@ -148,6 +148,20 @@ be used in code as follows:
     )
 ```
 
+### Entering an account_id
+If you add your account ID to the `config_file` manually before running any 
+commands`gg_group_setup` will use the account ID to make a notch more 
+restrictive Core and Device policies. Specifically, if you enter a value here:
+```json
+  ...
+  "misc": {
+    "account_id": "<account_id_here>",
+    "iot_endpoint": ""
+  },...
+``` 
+These [instructions](http://docs.aws.amazon.com/IAM/latest/UserGuide/console_account-alias.html) 
+show you how to find your AWS account ID. 
+
 ### Using the `config_file` manually
 
 Although the helper commands `create-core` and `create-devices` will create 
