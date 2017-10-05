@@ -396,6 +396,13 @@ class GroupCommands(object):
                     policyName=policy_name,
                     policyDocument=thing_policy
                 )
+            except ClientError as ce:
+                if ce.response['Error']['Code'] == 'EntityAlreadyExists':
+                    logging.warning(
+                        "Policy '{0}' exists. Using existing Policy".format(
+                            policy_name))
+                else:
+                    logging.error("Unexpected Error: {0}".format(ce))
             except BaseException as e:
                 logging.error("Error:{0} type: {1} message: {2}".format(
                     e, str(type(e)), e.message))
@@ -416,7 +423,7 @@ class GroupCommands(object):
 
         # Make as restrictive as generically possible.
         if account_id is None:
-            arn = "arn:aws:iot:{0}::*".format(region)
+            arn = "arn:aws:iot:{0}:*:*".format(region)
         else:
             arn = "arn:aws:iot:{0}:{1}:*".format(region, account_id)
 
@@ -647,20 +654,21 @@ class GroupCommands(object):
                         "iot:Connect",
                         "iot:Receive",
                         "iot:GetThingShadow",
-                        "iot:UpdateThingShadow",
-                        "iot:DeleteThingShadow"
+                        "iot:DeleteThingShadow",
+                        "iot:UpdateThingShadow"
                     ],
                     "Resource": [arn]
                 },
                 {
                     "Effect": "Allow",
                     "Action": [
-                        "greengrass:UpdateConnectivityInfo",
                         "greengrass:AssumeRoleForGroup",
                         "greengrass:CreateCertificate",
                         "greengrass:GetConnectivityInfo",
-                        "greengrass:UpdateCoreDeploymentStatus",
+                        "greengrass:GetDeployment",
                         "greengrass:GetDeploymentArtifacts"
+                        "greengrass:UpdateConnectivityInfo",
+                        "greengrass:UpdateCoreDeploymentStatus"
                     ],
                     "Resource": [arn]
                 }
