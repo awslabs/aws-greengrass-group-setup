@@ -670,7 +670,7 @@ class GroupCommands(object):
                         "greengrass:UpdateConnectivityInfo",
                         "greengrass:UpdateCoreDeploymentStatus"
                     ],
-                    "Resource": [arn]
+                    "Resource": ["*"]
                 }
             ]
         }
