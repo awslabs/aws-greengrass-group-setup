@@ -747,7 +747,7 @@ class GroupCommands(object):
             "Statement": [{
                 "Effect": "Allow",
                 "Action": "greengrass:Discover",
-                "Resource": [arn]
+                "Resource": ["*"]
             }]
         }
         return json.dumps(device_policy)
