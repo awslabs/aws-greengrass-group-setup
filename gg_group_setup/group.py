@@ -22,6 +22,16 @@ logging.basicConfig(format='%(asctime)s|%(name)-8s|%(levelname)s: %(message)s',
 
 
 class GroupConfigFile(object):
+    KEY_MISC = 'misc'
+    KEY_DEVICES = 'devices'
+    KEY_LAMBDA_FUNCS = 'lambda_functions'
+    KEY_CORE = 'core'
+    KEY_CORE_DEF = 'core_def'
+    KEY_DEVICE_DEF = 'device_def'
+    KEY_FUNC_DEF = 'func_df'
+    KEY_LOGGER_DEF = 'logger_def'
+    KEY_SUBSCRIPTION_DEF = 'subscription_def'
+
     def __init__(self, config_file='cfg.json'):
         super(GroupConfigFile, self).__init__()
         self.config_file = config_file
@@ -45,7 +55,6 @@ class GroupConfigFile(object):
         if len(kwargs.keys()) == 0:
             logging.warning("No new configuration to update.")
             return
-        # config['group'] = {"id": group_info['Id']}
         config = self.get_config()
         if 'core' in kwargs:
             for key, val in kwargs['core']:
@@ -178,6 +187,13 @@ class GroupConfigFile(object):
 
 class GroupType(object):
     def __init__(self, config, region, type_name):
+        """
+        A type of group that can be provisioned as a Greengrass group.
+
+        :param config: a GroupConfigFile containing the config used by this type
+        :param region: the region in which this Group type will be provisioned
+        :param type_name: the name of the Group type
+        """
         super(GroupType, self).__init__()
         self.config = config
         self.region = region
