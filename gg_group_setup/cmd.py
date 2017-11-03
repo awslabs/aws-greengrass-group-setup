@@ -103,7 +103,7 @@ class GroupCommands(object):
 
         gg_client = boto3.client("greengrass", region_name=region)
 
-        group_info = gg_client.create_group(Name="{0}_group".format(group_name))
+        group_info = gg_client.create_group(Name="{0}".format(group_name))
         config['group'] = {"id": group_info['Id']}
 
         # setup the policies and roles
@@ -539,16 +539,25 @@ class GroupCommands(object):
             dep_req['DeploymentId'],
         ))
 
-    def create_thing(self, thing_name, region=None, cert_dir=None):
+    def create_thing(self, thing_name, region=None, cert_dir=None, force=False):
         if region is None:
             region = self._region
         iot_client = _get_iot_session(region=region)
         ###
-        # Here begins the essence of the `create_core` command
+        # Here begins the essence of the `create_thing` command
         # Create a Key and Certificate in the AWS IoT service per Thing
         keys_cert = iot_client.create_keys_and_certificate(setAsActive=True)
         # Create a named Thing in the AWS IoT Service
         thing = iot_client.create_thing(thingName=thing_name)
+        iot_client.update_thing(
+            thingName=thing_name,
+            attributePayload={
+                'attributes': {
+                    'thing_arn': thing['thingArn']
+                },
+                'merge': True
+            }
+        )
         # Attach the previously created Certificate to the created Thing
         iot_client.attach_thing_principal(
             thingName=thing_name, principal=keys_cert['certificateArn'])
