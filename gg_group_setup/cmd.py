@@ -141,7 +141,8 @@ class GroupCommands(object):
         config['group'] = {
             "id": group_info['Id'],
             "version_arn": grp['Arn'],
-            "version": grp['Version']
+            "version": grp['Version'],
+            "name": group_name
         }
         logging.info(
             "[end] Created Greengrass Group {0}".format(group_info['Id']))
@@ -342,9 +343,10 @@ class GroupCommands(object):
         deployments = gg_client.list_deployments(
             GroupId=group_id, MaxResults='1'
         )
-        if len(deployments) > 0:
+        if len(deployments['Deployments']) > 0:
             # there were previous deployments which need reset before delete
-            logging.info('Reset deployments for group_id:{0}'.format(group_id))
+            logging.info('Reset deployments:{0} for group_id:{1}'.format(
+                deployments, group_id))
             gg_client.reset_deployments(GroupId=group_id)
 
         try:
@@ -355,22 +357,26 @@ class GroupCommands(object):
         logging.info('[end] Deleted group')
 
     @staticmethod
-    def _delete_thing(cert_arn, cert_id, thing_name, region):
+    def _delete_thing(cert_arn, cert_id, thing_name, region, policy_name):
         iot_client = _get_iot_session(region=region)
 
         try:
             # update certificate to an INACTIVE status.
-            logging.debug('[_delete_thing] deactivating cert:{0}'.format(
+            logging.info('[_delete_thing] deactivating cert:{0}'.format(
                 cert_id))
             iot_client.update_certificate(
                 certificateId=cert_id, newStatus='INACTIVE'
             )
             # Next, detach the Thing principal/certificate from the Thing.
-            logging.debug(
-                '[_delete_thing] detaching cert:{0} from thing:{1}'.format(
-                    cert_arn, thing_name))
+            logging.info('[_delete_thing] detach cert')
             iot_client.detach_thing_principal(
                 thingName=thing_name, principal=cert_arn
+            )
+            logging.info('[_delete_thing] detach principal policy:{0}'.format(
+                policy_name)
+            )
+            iot_client.detach_principal_policy(
+                policyName=policy_name, principal=cert_arn
             )
             # finally delete the Certificate
             iot_client.delete_certificate(certificateId=cert_id)
@@ -447,10 +453,12 @@ class GroupCommands(object):
         core_cert_id = config['core']['cert_id']
         core_cert_arn = config['core']['cert_arn']
         core_thing_name = config['core']['thing_name']
+        policy_name = config['misc']['policy_name']
         logging.info('Deleting core_thing_name:{0}'.format(core_thing_name))
         GroupCommands._delete_thing(
             cert_arn=core_cert_arn, cert_id=core_cert_id,
-            thing_name=core_thing_name, region=region
+            thing_name=core_thing_name, region=region,
+            policy_name=policy_name
         )
         config.make_core_fresh()
 
@@ -468,12 +476,15 @@ class GroupCommands(object):
             region = self._region
 
         devices = config['devices']
+        policy_name = config['misc']['policy_name']
         for device in devices:
             cert_arn = devices[device]['cert_arn']
             cert_id = devices[device]['cert_id']
             thing_name = device
             logging.info('Deleting device_thing_name:{0}'.format(thing_name))
-            GroupCommands._delete_thing(cert_arn, cert_id, thing_name, region)
+            GroupCommands._delete_thing(
+                cert_arn, cert_id, thing_name, region, policy_name
+            )
         config.make_devices_fresh()
 
     @staticmethod
@@ -553,7 +564,8 @@ class GroupCommands(object):
             thingName=thing_name,
             attributePayload={
                 'attributes': {
-                    'thing_arn': thing['thingArn']
+                    'thingArn': thing['thingArn'],
+                    'certificateId': keys_cert['certificateId']
                 },
                 'merge': True
             }
@@ -646,6 +658,9 @@ class GroupCommands(object):
             cert_arn, core_policy,
             iot_client=iot_client, policy_name=policy_name
         )
+        misc = config['misc']
+        misc['policy_name'] = policy_name
+        config['misc'] = misc
 
     def get_core_policy(self, core_name, account_id=None, region=None):
         if region is None:
@@ -675,7 +690,7 @@ class GroupCommands(object):
                         "greengrass:CreateCertificate",
                         "greengrass:GetConnectivityInfo",
                         "greengrass:GetDeployment",
-                        "greengrass:GetDeploymentArtifacts"
+                        "greengrass:GetDeploymentArtifacts",
                         "greengrass:UpdateConnectivityInfo",
                         "greengrass:UpdateCoreDeploymentStatus"
                     ],
@@ -725,6 +740,8 @@ class GroupCommands(object):
         devices = dict()
         if append:
             devices = config['devices']
+        if type(thing_names) is basestring:
+            thing_names = [thing_names]
 
         iot_client = _get_iot_session(region=region)
         for thing_name in thing_names:
@@ -746,6 +763,44 @@ class GroupCommands(object):
 
         config['devices'] = devices
         logging.info("create_devices cfg:{0}".format(config))
+
+    def associate_devices(self, thing_names, config_file, region=None):
+        # TODO remove this function when Group discovery is enriched
+        """
+        Using the `thing_names` values, associate existing Things in AWS IoT
+        with the config of another Greengrass Group for use as Greengrass
+        Devices.
+
+        :param thing_names: the thing name or list of thing names to associate
+            as Greengrass Devices
+        :param config_file: config file used to track the Greengrass Devices in
+            the group
+        :param region: the region in which to associate devices.
+            [default: us-west-2]
+        """
+        logging.info("associate_devices thing_names:{0}".format(thing_names))
+        config = GroupConfigFile(config_file=config_file)
+        if region is None:
+            region = self._region
+        devices = config['devices']
+        if type(thing_names) is basestring:
+            thing_names = [thing_names]
+        iot_client = _get_iot_session(region=region)
+        for thing_name in thing_names:
+            thing = iot_client.describe_thing(thingName=thing_name)
+            logging.info("Found existing Thing:{0}".format(thing))
+            p = iot_client.list_thing_principals(thingName=thing_name)
+            logging.info("Existing Thing has principals:{0}".format(p))
+            devices[thing_name] = {
+                'thing_arn': thing['attributes']['thingArn'],
+                'cert_arn': p['principals'][0],
+                'cert_id': thing['attributes']['certificateId'],
+                'thing_name': thing_name
+            }
+            logging.info("Thing:'{0}' associated with config:'{1}'".format(
+                thing_name, config_file))
+
+        config['devices'] = devices
 
     def get_device_policy(self, device_name, account_id, region=None):
         if region is None:
