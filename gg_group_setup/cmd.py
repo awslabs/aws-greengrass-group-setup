@@ -815,7 +815,8 @@ class GroupCommands(object):
                 'thing_arn': thing['attributes']['thingArn'],
                 'cert_arn': p['principals'][0],
                 'cert_id': thing['attributes']['certificateId'],
-                'thing_name': thing_name
+                'thing_name': thing_name,
+                'cloud_sync': devices[thing_name]['cloud_sync']
             }
             logging.info("Thing:'{0}' associated with config:'{1}'".format(
                 thing_name, config_file))
