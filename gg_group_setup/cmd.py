@@ -69,6 +69,23 @@ class GroupCommands(object):
             group_type will be used.
         :param region: the region in which to create the new group. [default: us-west-2]
         """
+        return self.create_group(
+            group_type=group_type, config_file=config_file,
+            group_name=group_name, region=region
+        )
+
+    def create_group(self, group_type, config_file, group_name=None,
+                     region=None):
+        """
+        Create a Greengrass group in the given region.
+
+        :param group_type: the type of group to create. Must match a `key` in
+            the `group_types` dict
+        :param config_file: config file of the group to create
+        :param group_name: the name of the group. If no name is given, then
+            group_type will be used.
+        :param region: the region in which to create the new group. [default: us-west-2]
+        """
         logging.info("[begin] create command using group_types:{0}".format(
             self.group_types))
 
@@ -702,7 +719,7 @@ class GroupCommands(object):
 
     def create_devices(self, thing_names, config_file, region=None,
                        cert_dir=None, append=False, account_id=None,
-                       policy_name='ggd-discovery-policy'):
+                       cloud_sync=False, policy_name='ggd-discovery-policy'):
         """
         Using the `thing_names` values, creates Things in AWS IoT, attaches and
         downloads new keys & certs to the certificate directory, then records
@@ -722,6 +739,8 @@ class GroupCommands(object):
         :param account_id: the account ID in which to create devices. If 'None'
             the config_file will be checked for an `account_id` value in the
             `misc` section.
+        :param cloud_sync: the created devices' shadows will be configured to
+            sync to the Cloud. [default: False]
         :param policy_name: the name of the policy to associate with the device.
             [default: 'ggd-discovery-policy']
         """
@@ -751,7 +770,8 @@ class GroupCommands(object):
                 'thing_arn': thing['thingArn'],
                 'cert_arn': cert_arn,
                 'cert_id': keys_cert['certificateId'],
-                'thing_name': thing_name
+                'thing_name': thing_name,
+                'cloud_sync': cloud_sync
             }
             logging.info("Thing:'{0}' associated with cert:'{1}'".format(
                 thing_name, cert_arn))
