@@ -16,6 +16,7 @@
     "device_thing_name": {
       "cert_arn": "",
       "cert_id": "",
+      "cloud_sync": false,
       "thing_arn": "",
       "thing_name": ""
     }
@@ -39,7 +40,8 @@
   },
   "misc": {
     "account_id": "",
-    "iot_endpoint": ""
+    "iot_endpoint": "",
+    "policy_name": ""
   },
   "subscription_def": {
     "id": "",
