@@ -119,7 +119,7 @@ class GroupCommands(object):
             config=config, group_name=group_name
         )
         lv_arn = self._create_function_definition(
-            gg_client=gg_client, group_type=gt, config=config
+            gg_client=gg_client, group_type=gt, config=config, region=region
         )
         log_arn = self._create_logger_definition(
             gg_client=gg_client, group_type=gt, config=config
@@ -193,9 +193,9 @@ class GroupCommands(object):
             return
 
     @staticmethod
-    def _create_function_definition(gg_client, group_type, config):
+    def _create_function_definition(gg_client, group_type, config, region=None):
         # Add latest version of Lambda functions to a Function definition
-        aws = boto3.client('lambda')
+        aws = boto3.client('lambda', region_name=region)
         latest_funcs = dict()
         func_definition = []
         # first determine the latest versions of configured Lambda functions
