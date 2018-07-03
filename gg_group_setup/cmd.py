@@ -783,7 +783,7 @@ class GroupCommands(object):
         if region is None:
             region = self._region
         devices = config['devices']
-        if type(thing_names) is basestring:
+        if type(thing_names) is str:
             thing_names = [thing_names]
         iot_client = _get_iot_session(region=region)
         for thing_name in thing_names:
