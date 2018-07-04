@@ -37,9 +37,23 @@ def _get_iot_session(region, profile_name=None):
         profile_name=profile_name).client('iot')
 
 
+def _get_gg_session(region, profile_name=None):
+    if profile_name is None:
+        logging.debug(
+            "loading AWS Greengrass client using 'default' AWS CLI profile")
+        return Session(region_name=region).client('greengrass')
+
+    logging.debug(
+        "loading AWS Greengrass client using '{0}' AWS CLI profile".format(
+            profile_name))
+    return Session(
+        region_name=region,
+        profile_name=profile_name).client('greengrass')
+
+
 class GroupCommands(object):
     def __init__(self, group_types=None, account_id=None,
-                 region='us-west-2', profile_name=None):
+                 region='us-west-2'):
         """
         Commands used to create a Greengrass group.
 
@@ -55,10 +69,9 @@ class GroupCommands(object):
         self.group_types = group_types
         self._region = region
         self._account_id = account_id
-        self._profile_name = profile_name
 
     def create(self, group_type, config_file, group_name=None,
-               region=None):
+               region=None, profile_name=None):
         """
         Create a Greengrass group in the given region.
 
@@ -67,7 +80,10 @@ class GroupCommands(object):
         :param config_file: config file of the group to create
         :param group_name: the name of the group. If no name is given, then
             group_type will be used.
-        :param region: the region in which to create the new group. [default: us-west-2]
+        :param region: the region in which to create the new group.
+            [default: us-west-2]
+        :param profile_name: the name of the `awscli` profile to use.
+            [default: None]
         """
         logging.info("[begin] create command using group_types:{0}".format(
             self.group_types))
@@ -101,7 +117,7 @@ class GroupCommands(object):
         if group_name is None:
             group_name = group_type
 
-        gg_client = boto3.client("greengrass", region_name=region)
+        gg_client = _get_gg_session(region=region, profile_name=profile_name)
 
         group_info = gg_client.create_group(Name="{0}".format(group_name))
         config['group'] = {"id": group_info['Id']}
@@ -119,24 +135,40 @@ class GroupCommands(object):
             config=config, group_name=group_name
         )
         lv_arn = self._create_function_definition(
-            gg_client=gg_client, group_type=gt, config=config, region=region
+            gg_client=gg_client, group_type=gt,
+            config=config
         )
         log_arn = self._create_logger_definition(
-            gg_client=gg_client, group_type=gt, config=config
+            gg_client=gg_client, group_type=gt,
+            config=config
         )
         sub_arn = self._create_subscription_definition(
-            gg_client=gg_client, group_type=gt, config=config
+            gg_client=gg_client, group_type=gt,
+            config=config
+        )
+
+        logging.info(
+            'Group details, core_def:{0} device_def:{1} func_def:{2} '
+            'logger_def:{3} subs_def:{4}'.format(
+                cl_arn, dl_arn, lv_arn, log_arn, sub_arn)
         )
 
         # Add all the constituent parts to the Greengrass Group
+        group_args = {'GroupId': group_info['Id']}
+        if cl_arn:
+            group_args['CoreDefinitionVersionArn'] = cl_arn
+        if dl_arn:
+            group_args['DeviceDefinitionVersionArn'] = dl_arn
+        if lv_arn:
+            group_args['FunctionDefinitionVersionArn'] = lv_arn
+        if log_arn:
+            group_args['LoggerDefinitionVersionArn'] = log_arn
+        if sub_arn:
+            group_args['SubscriptionDefinitionVersionArn'] = sub_arn
         grp = gg_client.create_group_version(
-            GroupId=group_info['Id'],
-            CoreDefinitionVersionArn=cl_arn,
-            DeviceDefinitionVersionArn=dl_arn,
-            FunctionDefinitionVersionArn=lv_arn,
-            LoggerDefinitionVersionArn=log_arn,
-            SubscriptionDefinitionVersionArn=sub_arn
+            **group_args
         )
+
         # store info about the provisioned artifacts into the local config file
         config['group'] = {
             "id": group_info['Id'],
@@ -173,6 +205,12 @@ class GroupCommands(object):
     def _create_device_definition(gg_client, group_type, config, group_name):
         device_def = group_type.get_device_definition(config=config)
         device_def_id = config['device_def']['id']
+        if device_def is None:
+            logging.warning("No DeviceDefinition exists in GroupType:{0}".format(
+                group_type.type_name)
+            )
+            return
+
         if device_def_id is None or len(device_def_id) == 0:
             dl = gg_client.create_device_definition(
                 Name="{0}_device_def".format(group_name))
@@ -186,6 +224,7 @@ class GroupCommands(object):
             config['device_def'] = {'id': dl['Id'], 'version_arn': dl_arn}
             logging.info("DeviceDefinitionId: {0}".format(device_def_id))
             return dl_arn
+
         else:
             logging.info("DeviceDefinition already exists:{0}".format(
                 device_def_id)
@@ -201,31 +240,35 @@ class GroupCommands(object):
         # first determine the latest versions of configured Lambda functions
         for key in config['lambda_functions']:
             lambda_name = key
-            a = aws.list_aliases(FunctionName=lambda_name)
-            # assume only one Alias associated with the Lambda function
-            alias_arn = a['Aliases'][0]['AliasArn']
-            logging.info("function {0}, found aliases: {1}".format(
-                lambda_name, a)
-            )
+            try:
+                a = aws.list_aliases(FunctionName=lambda_name)
+                # assume only one Alias associated with the Lambda function
+                alias_arn = a['Aliases'][0]['AliasArn']
+                logging.info("function {0}, found aliases: {1}".format(
+                    lambda_name, a)
+                )
 
-            # get the function pointed to by the alias
-            q = config['lambda_functions'][lambda_name]['arn_qualifier']
-            f = aws.get_function(FunctionName=lambda_name, Qualifier=q)
-            logging.info(
-                "retrieved func config: {0}".format(f['Configuration']))
-            latest_funcs[lambda_name] = {
-                "arn": alias_arn,
-                "arn_qualifier": q
-            }
-            func_definition.append({
-                "Id": "{0}".format(lambda_name.lower()),
-                "FunctionArn": alias_arn,
-                "FunctionConfiguration": {
-                    "Executable": f['Configuration']['Handler'],
-                    "MemorySize": int(f['Configuration']['MemorySize']) * 1000,
-                    "Timeout": int(f['Configuration']['Timeout'])
+                # get the function pointed to by the alias
+                q = config['lambda_functions'][lambda_name]['arn_qualifier']
+                f = aws.get_function(FunctionName=lambda_name, Qualifier=q)
+                logging.info(
+                    "retrieved func config: {0}".format(f['Configuration']))
+                latest_funcs[lambda_name] = {
+                    "arn": alias_arn,
+                    "arn_qualifier": q
                 }
-            })  # function definition
+                func_definition.append({
+                    "Id": "{0}".format(lambda_name.lower()),
+                    "FunctionArn": alias_arn,
+                    "FunctionConfiguration": {
+                        "Executable": f['Configuration']['Handler'],
+                        "MemorySize":
+                            int(f['Configuration']['MemorySize']) * 1000,
+                        "Timeout": int(f['Configuration']['Timeout'])
+                    }
+                })  # function definition
+            except Exception as e:
+                logging.error(e)
 
         # if we found one or more configured functions, create a func definition
         if len(func_definition) > 0:
@@ -243,7 +286,7 @@ class GroupCommands(object):
             config['func_def'] = {'id': ll['Id'], 'version_arn': ll_arn}
             return ll_arn
         else:
-            return '<no_functions>'
+            return
 
     @staticmethod
     def _create_logger_definition(gg_client, group_type, config):
@@ -288,6 +331,13 @@ class GroupCommands(object):
         logging.info('Created subscription definition: {0}'.format(sub_info))
 
         subs = group_type.get_subscription_definition(config=config)
+        if subs is None:
+            logging.warning(
+                "[end] No SubscriptionDefinition exists in GroupType:{0}".format(
+                    group_type.type_name)
+            )
+            return
+
         subv = gg_client.create_subscription_definition_version(
             SubscriptionDefinitionId=sub_info['Id'],
             Subscriptions=subs
@@ -301,19 +351,19 @@ class GroupCommands(object):
         return sub_arn
 
     @staticmethod
-    def _delete_group(config_file, region='us-west-2'):
+    def _delete_group(config_file, region, profile_name):
         logging.info('[begin] Deleting Group')
         config = GroupConfigFile(config_file=config_file)
 
         # delete the Greengrass Group entities
-        gg_client = boto3.client("greengrass", region_name=region)
+        gg_client = _get_gg_session(region=region, profile_name=profile_name)
 
         logger_def_id = config['logger_def']['id']
         logging.info('Deleting logger_def_id:{0}'.format(logger_def_id))
         try:
             gg_client.delete_logger_definition(LoggerDefinitionId=logger_def_id)
         except ClientError as ce:
-            logging.error(ce.message)
+            logging.error(ce)
 
         func_def_id = config['func_def']['id']
         logging.info('Deleting func_def_id:{0}'.format(func_def_id))
@@ -322,21 +372,21 @@ class GroupCommands(object):
                 FunctionDefinitionId=func_def_id
             )
         except ClientError as ce:
-            logging.error(ce.message)
+            logging.error(ce)
 
         device_def_id = config['device_def']['id']
         logging.info('Deleting device_def_id:{0}'.format(device_def_id))
         try:
             gg_client.delete_device_definition(DeviceDefinitionId=device_def_id)
         except ClientError as ce:
-            logging.error(ce.message)
+            logging.error(ce)
 
         core_def_id = config['core_def']['id']
         logging.info('Deleting core_def_id:{0}'.format(core_def_id))
         try:
             gg_client.delete_core_definition(CoreDefinitionId=core_def_id)
         except ClientError as ce:
-            logging.error(ce.message)
+            logging.error(ce)
 
         group_id = config['group']['id']
         logging.info('Deleting group_id:{0}'.format(group_id))
@@ -352,13 +402,14 @@ class GroupCommands(object):
         try:
             gg_client.delete_group(GroupId=group_id)
         except ClientError as ce:
-            logging.error(ce.message)
+            logging.error(ce)
             return
         logging.info('[end] Deleted group')
 
     @staticmethod
-    def _delete_thing(cert_arn, cert_id, thing_name, region, policy_name):
-        iot_client = _get_iot_session(region=region)
+    def _delete_thing(cert_arn, cert_id, thing_name, region, policy_name,
+                      profile_name):
+        iot_client = _get_iot_session(region=region, profile_name=profile_name)
 
         try:
             # update certificate to an INACTIVE status.
@@ -381,7 +432,7 @@ class GroupCommands(object):
             # finally delete the Certificate
             iot_client.delete_certificate(certificateId=cert_id)
         except ClientError as ce:
-            logging.error(ce.message)
+            logging.error(ce)
 
         # delete the Thing
         logging.info('Deleting thing_name:{0}'.format(thing_name))
@@ -391,7 +442,7 @@ class GroupCommands(object):
                 thingName=thing_name, expectedVersion=thing['version']
             )
         except ClientError as ce:
-            logging.error(ce.message)
+            logging.error(ce)
 
     @staticmethod
     def _create_attach_thing_policy(cert_arn, thing_policy, iot_client,
@@ -410,8 +461,8 @@ class GroupCommands(object):
                 else:
                     logging.error("Unexpected Error: {0}".format(ce))
             except BaseException as e:
-                logging.error("Error:{0} type: {1} message: {2}".format(
-                    e, str(type(e)), e.message))
+                logging.error("Error type: {0} message: {1}".format(
+                    e, str(type(e))))
 
             # even if there's an exception creating the policy, try to attach
             iot_client.attach_principal_policy(
@@ -435,13 +486,16 @@ class GroupCommands(object):
 
         return arn
 
-    def clean_core(self, config_file, region=None):
+    def clean_core(self, config_file, region=None, profile_name=None):
         """
         Clean all Core related provisioned artifacts from both the local file
         and the AWS Greengrass service.
 
-        :param config_file:
-        :param region:
+        :param config_file: config file containing the core to clean
+        :param region: the region in which the core should be cleaned.
+            [default: us-west-2]
+        :param profile_name: the name of the `awscli` profile to use.
+            [default: None]
         :return:
         """
         config = GroupConfigFile(config_file=config_file)
@@ -458,24 +512,30 @@ class GroupCommands(object):
         GroupCommands._delete_thing(
             cert_arn=core_cert_arn, cert_id=core_cert_id,
             thing_name=core_thing_name, region=region,
-            policy_name=policy_name
+            policy_name=policy_name, profile_name=profile_name
         )
         config.make_core_fresh()
 
-    def clean_devices(self, config_file, region=None):
+    def clean_devices(self, config_file, region=None, profile_name=None):
         """
         Clean all device related provisioned artifacts from both the local file
         and the AWS Greengrass service.
 
-        :param config_file:
-        :param region:
-        :return:
+        :param config_file: config file containing the devices to clean
+        :param region: the region in which the devices should be cleaned.
+            [default: us-west-2]
+        :param profile_name: the name of the `awscli` profile to use.
+            [default: None]
         """
         config = GroupConfigFile(config_file=config_file)
         if region is None:
             region = self._region
 
         devices = config['devices']
+        if 'device_thing_name' in devices:
+            logging.info('Configured devices already clean')
+            return
+
         policy_name = config['misc']['policy_name']
         for device in devices:
             cert_arn = devices[device]['cert_arn']
@@ -483,7 +543,7 @@ class GroupCommands(object):
             thing_name = device
             logging.info('Deleting device_thing_name:{0}'.format(thing_name))
             GroupCommands._delete_thing(
-                cert_arn, cert_id, thing_name, region, policy_name
+                cert_arn, cert_id, thing_name, region, policy_name, profile_name
             )
         config.make_devices_fresh()
 
@@ -502,13 +562,16 @@ class GroupCommands(object):
         config.make_fresh()
         logging.info('[end] Cleaned config file:{0}'.format(config_file))
 
-    def clean_all(self, config_file, region=None):
+    def clean_all(self, config_file, region=None, profile_name=None):
         """
         Clean all provisioned artifacts from both the local file and the AWS
         Greengrass service.
 
-        :param config_file: config file of the group to clean
-        :param region: the region in which to clean the group
+        :param config_file: config file containing the group to clean
+        :param region: the region in which the group should be cleaned.
+            [default: us-west-2]
+        :param profile_name: the name of the `awscli` profile to use.
+            [default: None]
         """
         logging.info('[begin] Cleaning all provisioned artifacts')
         config = GroupConfigFile(config_file=config_file)
@@ -518,20 +581,23 @@ class GroupCommands(object):
         if region is None:
             region = self._region
 
-        self._delete_group(config_file, region=region)
+        self._delete_group(
+            config_file, region=region, profile_name=profile_name)
         self.clean_core(config_file, region=region)
         self.clean_devices(config_file, region=region)
         self.clean_file(config_file)
 
         logging.info('[end] Cleaned all provisioned artifacts')
 
-    def deploy(self, config_file, region=None):
+    def deploy(self, config_file, region=None, profile_name=None):
         """
         Deploy the configuration and Lambda functions of a Greengrass group to
         the Greengrass core contained in the group.
 
         :param config_file: config file of the group to deploy
         :param region: the region from which to deploy the group.
+        :param profile_name: the name of the `awscli` profile to use.
+            [default: None]
         """
         config = GroupConfigFile(config_file=config_file)
         if config.is_fresh():
@@ -540,7 +606,8 @@ class GroupCommands(object):
         if region is None:
             region = self._region
 
-        gg_client = boto3.client("greengrass", region_name=region)
+        gg_client = _get_gg_session(region=region, profile_name=profile_name)
+
         dep_req = gg_client.create_deployment(
             GroupId=config['group']['id'],
             GroupVersionId=config['group']['version'],
@@ -610,7 +677,7 @@ class GroupCommands(object):
 
     def create_core(self, thing_name, config_file, region=None,
                     cert_dir=None, account_id=None,
-                    policy_name='ggc-default-policy'):
+                    policy_name='ggc-default-policy', profile_name=None):
         """
         Using the `thing_name` value, creates a Thing in AWS IoT, attaches and
         downloads new keys & certs to the certificate directory, then records
@@ -629,6 +696,8 @@ class GroupCommands(object):
             [default: None]
         :param policy_name: the name of the policy to associate with the device.
             [default: 'ggc-default-policy']
+        :param profile_name: the name of the `awscli` profile to use.
+            [default: None]
         """
         config = GroupConfigFile(config_file=config_file)
         if config.is_fresh() is False:
@@ -653,7 +722,7 @@ class GroupCommands(object):
             thing_name, cert_arn))
         core_policy = self.get_core_policy(
             core_name=thing_name, account_id=account_id, region=region)
-        iot_client = _get_iot_session(region=region)
+        iot_client = _get_iot_session(region=region, profile_name=profile_name)
         self._create_attach_thing_policy(
             cert_arn, core_policy,
             iot_client=iot_client, policy_name=policy_name
@@ -702,7 +771,7 @@ class GroupCommands(object):
 
     def create_devices(self, thing_names, config_file, region=None,
                        cert_dir=None, append=False, account_id=None,
-                       policy_name='ggd-discovery-policy'):
+                       policy_name='ggd-discovery-policy', profile_name=None):
         """
         Using the `thing_names` values, creates Things in AWS IoT, attaches and
         downloads new keys & certs to the certificate directory, then records
@@ -724,6 +793,8 @@ class GroupCommands(object):
             `misc` section.
         :param policy_name: the name of the policy to associate with the device.
             [default: 'ggd-discovery-policy']
+        :param profile_name: the name of the `awscli` profile to use.
+            [default: None]
         """
         logging.info("create_devices thing_names:{0}".format(thing_names))
         config = GroupConfigFile(config_file=config_file)
@@ -740,10 +811,10 @@ class GroupCommands(object):
         devices = dict()
         if append:
             devices = config['devices']
-        if type(thing_names) is basestring:
+        if type(thing_names) is str:
             thing_names = [thing_names]
 
-        iot_client = _get_iot_session(region=region)
+        iot_client = _get_iot_session(region=region, profile_name=profile_name)
         for thing_name in thing_names:
             keys_cert, thing = self.create_thing(thing_name, region, cert_dir)
             cert_arn = keys_cert['certificateArn']
@@ -764,7 +835,8 @@ class GroupCommands(object):
         config['devices'] = devices
         logging.info("create_devices cfg:{0}".format(config))
 
-    def associate_devices(self, thing_names, config_file, region=None):
+    def associate_devices(self, thing_names, config_file, region=None,
+                          profile_name=None):
         # TODO remove this function when Group discovery is enriched
         """
         Using the `thing_names` values, associate existing Things in AWS IoT
@@ -777,6 +849,8 @@ class GroupCommands(object):
             the group
         :param region: the region in which to associate devices.
             [default: us-west-2]
+        :param profile_name: the name of the `awscli` profile to use.
+            [default: None]
         """
         logging.info("associate_devices thing_names:{0}".format(thing_names))
         config = GroupConfigFile(config_file=config_file)
@@ -785,7 +859,7 @@ class GroupCommands(object):
         devices = config['devices']
         if type(thing_names) is str:
             thing_names = [thing_names]
-        iot_client = _get_iot_session(region=region)
+        iot_client = _get_iot_session(region=region, profile_name=profile_name)
         for thing_name in thing_names:
             thing = iot_client.describe_thing(thingName=thing_name)
             logging.info("Found existing Thing:{0}".format(thing))
@@ -818,7 +892,7 @@ class GroupCommands(object):
 
 
 def main():
-    from mock_group import MockGroupType
+    from .mock_group import MockGroupType
     gc = GroupCommands(
         group_types={MockGroupType.MOCK_TYPE: MockGroupType},
         region='us-west-2'

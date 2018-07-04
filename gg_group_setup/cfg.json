@@ -1,6 +1,7 @@
 {
   "core": {
     "cert_arn": "",
+    "cert_id": "",
     "thing_arn": "",
     "thing_name": ""
   },
@@ -25,7 +26,10 @@
     "version_arn": ""
   },
   "group": {
-    "id": ""
+    "id": "",
+    "name": "fubar-neel",
+    "version": "",
+    "version_arn": ""
   },
   "lambda_functions": {
     "MockDevice": {
@@ -39,7 +43,8 @@
   },
   "misc": {
     "account_id": "",
-    "iot_endpoint": ""
+    "iot_endpoint": "asueaux6o8ncd.iot.us-west-2.amazonaws.com",
+    "policy_name": "ggc-default-policy"
   },
   "subscription_def": {
     "id": "",

@@ -36,7 +36,7 @@ setup(
     py_modules=['group_setup'],
     zip_safe=False,
     include_package_data=True,
-    install_requires=['boto3>=1.4.7', 'fire>=0.1.2'],
+    install_requires=['boto3>=1.7.50', 'fire>=0.1.3'],
     packages=["gg_group_setup"],
     keywords='greengrass group aws iot',
     entry_points='''
@@ -51,7 +51,7 @@ setup(
         'Operating System :: OS Independent',
         'Development Status :: 4 - Beta',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Utilities'
     ]

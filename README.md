@@ -46,6 +46,7 @@ After installation, for command line help type:
     gg_group_setup clean-devices -- --help
     gg_group_setup clean-file -- --help
     gg_group_setup clean-all -- --help
+    gg_group_setup associate_devices -- --help
 
 ### Quick Start
 

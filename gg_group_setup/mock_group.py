@@ -30,35 +30,48 @@ class MockGroupType(GroupType):
         }]
 
     def get_device_definition(self, config):
-        return [{
-            "Id": "{0}_10".format(self.type_name),
-            "ThingArn": config['devices']['GGD_example']['thing_arn'],
-            "CertificateArn": config['devices']['GGD_example']['cert_arn'],
-            "SyncShadow": False
-        }]
+        if 'GGD_example' in config['devices']:
+            thing_arn = config['devices']['GGD_example']['thing_arn']
+            cert_arn = config['devices']['GGD_example']['cert_arn']
+            print("#### thing_arn:{0}".format(thing_arn))
+            print("####  cert_arn:{0}".format(cert_arn))
+
+            return [{
+                "Id": "{0}_10".format(self.type_name),
+                "ThingArn": thing_arn,
+                "CertificateArn": cert_arn,
+                "SyncShadow": False
+            }]
+        else:
+            return None
 
     def get_subscription_definition(self, config):
         d = config['devices']
-        l = config['lambda_functions']
+        lamb = config['lambda_functions']
         s = config['subscriptions']
 
-        return [
-            {
-                "Id": "1",
-                "Source": d['GGD_example']['thing_arn'],
-                "Subject": s['telemetry'],
-                "Target": l['MockDevice']['arn']
-            },
-            {
-                "Id": "4",
-                "Source": d['GGD_example']['thing_arn'],
-                "Subject": s['telemetry'],
-                "Target": "cloud"
-            },
-            {
-                "Id": "14",
-                "Source": l['MockDevice']['arn'],
-                "Subject": s['errors'],
-                "Target": "cloud"
-            }
-        ]
+        if 'GGD_example' in config['devices']:
+            thing_arn = config['devices']['GGD_example']['thing_arn']
+
+            return [
+                {
+                    "Id": "1",
+                    "Source": thing_arn,
+                    "Subject": s['telemetry'],
+                    "Target": lamb['MockDevice']['arn']
+                },
+                {
+                    "Id": "4",
+                    "Source": thing_arn,
+                    "Subject": s['telemetry'],
+                    "Target": "cloud"
+                },
+                {
+                    "Id": "14",
+                    "Source": lamb['MockDevice']['arn'],
+                    "Subject": s['errors'],
+                    "Target": "cloud"
+                }
+            ]
+        else:
+            return None
