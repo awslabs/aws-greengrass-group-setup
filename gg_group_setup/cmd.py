@@ -242,14 +242,15 @@ class GroupCommands(object):
             lambda_name = key
             try:
                 a = aws.list_aliases(FunctionName=lambda_name)
-                # assume only one Alias associated with the Lambda function
-                alias_arn = a['Aliases'][0]['AliasArn']
+                q = config['lambda_functions'][lambda_name]['arn_qualifier']
+                # Find the alias index in alias list which alias name equal to arn_qualifier
+                alias_index = next((index for (index, d) in enumerate(a['Aliases']) if d["Name"] == q))
+                alias_arn = a['Aliases'][alias_index]['AliasArn']
                 logging.info("function {0}, found aliases: {1}".format(
                     lambda_name, a)
                 )
 
                 # get the function pointed to by the alias
-                q = config['lambda_functions'][lambda_name]['arn_qualifier']
                 f = aws.get_function(FunctionName=lambda_name, Qualifier=q)
                 logging.info(
                     "retrieved func config: {0}".format(f['Configuration']))
