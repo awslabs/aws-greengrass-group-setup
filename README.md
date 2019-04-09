@@ -5,7 +5,7 @@
 Greengrass **`gg_group_setup`** is an example file-driven approach to the creation 
 of an entire AWS Greengrass group.
 
-This repository demonstrates how one might automate the following discrete steps, but if you're doing full, complex, deployment management of Greengrass Groups you might want to explore the new [Greengrass CloudFormation](https://docs.aws.amazon.com/greengrass/latest/developerguide/cloudformation-support.html) support. 
+This repository demonstrates how one might automate the following discrete steps, but if you're doing full, complex, deployment management of Greengrass Groups you will want to explore the new [Greengrass CloudFormation](https://docs.aws.amazon.com/greengrass/latest/developerguide/cloudformation-support.html) support and read this [blog post]https://aws.amazon.com/blogs/iot/automating-aws-iot-greengrass-setup-with-aws-cloudformation/). 
 
 Usually the following discrete steps are necessary to setup and deploy a Greengrass group.
 
