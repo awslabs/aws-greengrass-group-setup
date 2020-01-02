@@ -21,22 +21,26 @@
       "thing_name": ""
     }
   },
-  "func_def": {
-    "id": "",
-    "version_arn": ""
-  },
+    "func_def": {
+        "id": "",
+      "version_arn": "",
+      "environment_variables": {}
+    },
   "group": {
     "id": "",
     "name": "fubar-neel",
     "version": "",
     "version_arn": ""
   },
-  "lambda_functions": {
-    "MockDevice": {
-      "arn": "arn:aws:lambda:us-west-2:<account_id>:function:MockDevice:<alias>",
-      "arn_qualifier": "<alias>"
-    }
-  },
+    "lambda_functions": {
+        "MockDevice": {
+            "arn": "arn:aws:lambda:us-west-2:<account_id>:function:MockDevice:<alias>",
+            "arn_qualifier": "<alias>",
+            "environment_variables": {
+               "<name>": "<value>",
+            }
+        }
+    },
   "logger_def": {
     "id": "",
     "version_arn": ""
