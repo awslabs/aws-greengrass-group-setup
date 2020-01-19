@@ -71,6 +71,9 @@ Lambda function(s)
               "<function_name>": {
                 "arn": "<lambda_ARN>",
                 "arn_qualifier": "<alias>"
+                "environment_variables": {
+                  "<name>": "<value>",
+                }
               }
             },
             ```
@@ -83,6 +86,9 @@ Lambda function(s)
               "MyFirstGreengrassLambda": {
                 "arn": "arn:aws:lambda:us-west-2:<account_id>:function:MyFirstGreengrassLambda:dev",
                 "arn_qualifier": "dev"
+                "environment_variables": {
+                  "SAY_HELLO_TO": "Miss. Mocking Bird",
+                }
               }
             },
             ```
@@ -95,10 +101,17 @@ Lambda function(s)
                   "MyFirstGreengrassLambda": {
                     "arn": "arn:aws:lambda:us-west-2:<account_id>:function:MyFirstGreengrassLambda:dev",
                     "arn_qualifier": "dev"
+                    "environment_variables": {
+                      "SAY_HELLO_TO": "Miss. Mocking Bird",
+                    }
                   },
                   "MockDeviceLambda": {
                     "arn": "arn:aws:lambda:us-west-2:<account_id>:function:MockDeviceLambda:dev",
                     "arn_qualifier": "dev"
+                    "environment_variables": {
+                      "SAY_GOODBYE_TO": "Mr. Sleepy Owl",
+                      "SAY_GOODBYE_AT": "8:00 PM",
+                    }
                   }
                 },
                 ```
