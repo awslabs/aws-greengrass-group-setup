@@ -37,7 +37,7 @@
             "arn": "arn:aws:lambda:us-west-2:<account_id>:function:MockDevice:<alias>",
             "arn_qualifier": "<alias>",
             "environment_variables": {
-               "<name>": "<value>",
+               "<name>": "<value>"
             }
         }
     },
